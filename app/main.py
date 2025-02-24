@@ -1,8 +1,8 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, Depends, HTTPException
 from app.auth.utils import json_to_dict_list
-from app.main import SStudent
+from app.auth.models import SStudent, RBStudent
 import os
-from typing import Optional
+from typing import Optional, List
 
 # Получаем путь к директории текущего скрипта
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -52,18 +52,21 @@ def get_all_students(course: Optional[int] = None):
 """
 
 @app.get("/students/{course}")
-def get_all_students_course(course: int = None, major: Optional[str] = None, enrollment_year: Optional[int] = None):
+def get_all_students_course(request_body: RBStudent = Depends())->List[SStudent]: 
+    # оптимизируем запрос в эндпоинте  позставив класс аргументов для передачи
     students = json_to_dict_list(path_to_json)
     filtered_students = []
     for student in students:
-        if student["course"] == course:
+        if student["course"] == request_body.course:
             filtered_students.append(student)
 
-    if major:
-        filtered_students = [student for student in filtered_students if student['major'].lower() == major.lower()]
+    if request_body.major:
+        filtered_students = [student for student in filtered_students if 
+                             student['major'].lower() == request_body.major.lower()]
 
-    if enrollment_year:
-        filtered_students = [student for student in filtered_students if student['enrollment_year'] == enrollment_year]
+    if request_body.enrollment_year:
+        filtered_students = [student for student in filtered_students if 
+                             student['enrollment_year'] == request_body.enrollment_year]
 
     return filtered_students
 

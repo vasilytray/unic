@@ -4,6 +4,12 @@ from datetime import date, datetime
 from typing import Optional
 import re
 
+class RBStudent: # Создали класс для оптимизации передачи аргументов в запросе и передадим его в эндпоинт
+    def __init__(self, course: int, major: Optional[str] = None, enrollment_year: Optional[int] = None):
+        self.course: int = course
+        self.major: Optional[str] = major
+        self.enrollment_year: Optional[int] = enrollment_year
+
 class Major(str, Enum):         # задаем перечисление существующих факультетов через enum и получаем  
     informatics = "Информатика" # дополнительные возможности перечисления,такие как ограничение набора 
     economics = "Экономика"     # возможных значений и удобные методы для работы с этими значениями.
@@ -11,6 +17,10 @@ class Major(str, Enum):         # задаем перечисление суще
     medicine = "Медицина"
     engineering = "Инженерия"
     languages = "Языки"
+    mathimatics = "Математика"
+    ecology = "Экология"
+    history = "История"
+    sycology = "Психология"
 
 class SStudent(BaseModel): # Pydantic-схема, SS - дополнительная S говорит о том что добавил схему(модель)
     student_id: int
@@ -39,10 +49,3 @@ class SStudent(BaseModel): # Pydantic-схема, SS - дополнительн�
         if values and values >= datetime.now().date():
             raise ValueError('Дата рождения должна быть в прошлом')
         return values
-
-def test_valid_student(data: dict) -> None:
-    try:
-        student = SStudent(**data)
-        print(student)
-    except ValidationError as e:
-        print(f"Ошибка валидации: {e}")
