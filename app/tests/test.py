@@ -1,4 +1,6 @@
-import requests
+import httpx
+from app.auth.models import Student
+from pydantic import BaseModel, EmailStr, Field, field_validator, ValidationError
 
 
 def get_all_students():
@@ -40,6 +42,12 @@ def get_students_with_param_mix(course: int, major: str, enrollment_year: int):
     response = requests.get(url, params={"major": major, "enrollment_year": enrollment_year})
     return response.json()
 
+def test_valid_student(data: dict) -> None:
+    try:
+        student = Student(**data)
+        print(student)
+    except ValidationError as e:
+        print(f"Ошибка валидации: {e}")
 
 students = get_students_with_param_mix(2, major=None, enrollment_year=2018)
 print(students)

@@ -128,5 +128,18 @@
       "major": "Экология",
       "course": 3,
       "special_notes": "Без особых примет"
-    }
+    },
+    {
+      "student_id": 11,
+      "phone_number": "+1234567890",
+      "first_name": "Иван",
+      "last_name": "Иванов",
+      "date_of_birth": "1202-06-20",
+      "email": "ivan.ivanov@example.com",
+      "address": "Москва, ул. Пушкина, д. Колотушкина",
+      "enrollment_year": 2022,
+      "major": "Программирование",
+      "course": 3,
+      "special_notes": "Увлекается программированием"
+  }
   ]

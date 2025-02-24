@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from app.auth.utils import json_to_dict_list
+from app.main import SStudent
 import os
 from typing import Optional
 
@@ -77,7 +78,7 @@ def get_all_students_course(student_id: int):
     return return_list
 
 # Параметры запроса , то что после ?
-@app.get("/student")
+"""@app.get("/student")
 def get_all_students(student_id: Optional[int] = None):
     students = json_to_dict_list(path_to_json)
     if student_id is None:
@@ -88,3 +89,10 @@ def get_all_students(student_id: Optional[int] = None):
             if student["student_id"] == student_id:
                 return_list.append(student)
         return return_list
+    """
+@app.get("/student")
+def get_student_from_param_id(student_id: int) -> SStudent:
+    students = json_to_dict_list(path_to_json)
+    for student in students:
+        if student["student_id"] == student_id:
+            return student
