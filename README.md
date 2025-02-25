@@ -228,3 +228,27 @@ class SStudentUpdate(BaseModel):
   "message": "Информация о студенте успешно обновлена!"
 }
 ```
+
+#### Обработка DELETE запросов в FastAPI
+
+В **utils.py** мы записали функцию удаления записи студента ```def dell_student(key: str, value: str)```
+
+Добавим в  **models.py** модель не забыв импортировать из **typing** ```, Any```
+
+```py
+class SDeleteFilter(BaseModel):
+    key: str
+    value: Any
+```
+
+И теперь добавим функцию для удаления студента из списка не забыв импортировать ```SDeleteFilter``` из **models.py**
+и ```dell_student``` из **utils.py**
+
+```py
+@app.delete("/delete_student")
+def delete_student_handler(filter_student: SDeleteFilter)
+...
+```
+запускаем и пробуем удалить студента.
+обработчик возвращает успех, НО смотрим в JSON и видим, что запись на самом деле не удалена!
+Проведем корректировку:

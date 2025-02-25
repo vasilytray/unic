@@ -1,7 +1,7 @@
 from enum import Enum
 from pydantic import BaseModel, EmailStr, Field, field_validator, ValidationError
 from datetime import date, datetime
-from typing import Optional
+from typing import Optional, Any
 import re
 
 class RBStudent: # Создали класс для оптимизации передачи аргументов в запросе и передадим его в эндпоинт
@@ -59,3 +59,8 @@ class SUpdateFilter(BaseModel):
 class SStudentUpdate(BaseModel):
     course: int = Field(..., ge=1, le=5, description="Курс должен быть в диапазоне от 1 до 5")
     major: Optional[Major] = Field(..., description="Специальность студента")
+
+# Определение модели для удаления данных студента
+class SDeleteFilter(BaseModel):
+    key: str
+    value: Any

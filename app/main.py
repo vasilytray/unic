@@ -1,8 +1,8 @@
 from fastapi import FastAPI, Depends, HTTPException
-from app.auth.utils import json_to_dict_list, add_student, upd_student
-from app.auth.models import SStudent, RBStudent, SUpdateFilter, SStudentUpdate
+from app.auth.utils import json_to_dict_list, add_student, upd_student, dell_student
+from app.auth.models import SStudent, RBStudent, SUpdateFilter, SStudentUpdate, SDeleteFilter
 import os
-from typing import Optional, List
+from typing import Optional, Dict, List
 
 # Получаем путь к директории текущего скрипта
 script_dir = os.path.dirname(os.path.abspath(__file__))
@@ -113,7 +113,7 @@ def add_student_handler(student: SStudent):
                 detail="Студент с таким email уже существует"
             )
     # Добавляем студента, если проверка пройдена
-    student_dict = student.model_dump()
+    student_dict = student.dict()
     check = add_student(student_dict)
     if check:
         return {"message": "Студент успешно добавлен!"}
@@ -130,3 +130,21 @@ def update_student_handler(filter_student: SUpdateFilter, new_data: SStudentUpda
         return {"message": "Информация о студенте успешно обновлена!"}
     else:
         raise HTTPException(status_code=400, detail="Ошибка при обновлении информации о студенте")
+    
+"""@app.delete("/delete_student")
+def delete_student_handler(filter_student: SDeleteFilter):
+    check = dell_student(filter_student.key, filter_student.value)
+    if check:
+        return {"message": "Студент успешно удален!"}
+    else:
+        raise HTTPException(status_code=400, detail="Ошибка при удалении студента")"""
+
+# Модифицируем обработчик
+@app.delete("/delete_student")
+def delete_student_handler(filter_student: SDeleteFilter):
+    print(f"Deleting by: {filter_student.key} = {filter_student.value}")  # Логирование
+    success = dell_student(filter_student.key, filter_student.value)
+    if success:
+        return {"message": "Студент успешно удален!"}
+    else:
+        raise HTTPException(400, "Студент не найден или ошибка удаления")

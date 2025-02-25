@@ -1,4 +1,5 @@
 from json_db_lite import JSONDatabase
+from typing import Any
 
 # инициализация объекта
 small_db = JSONDatabase(file_path='students.json')
@@ -23,6 +24,6 @@ def upd_student(upd_filter: dict, new_data: dict):
 
 
 # удаляем студента
-def dell_student(key: str, value: str):
+def dell_student(key: str, value: Any):
     small_db.delete_record_by_key(key, value)
     return True
