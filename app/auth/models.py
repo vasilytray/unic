@@ -24,7 +24,7 @@ class Major(str, Enum):         # задаем перечисление суще
 
 class SStudent(BaseModel): # Pydantic-схема, SS - дополнительная S говорит о том что добавил схему(модель)
     student_id: int
-    phone_number: str = Field(default=..., description="Номер телефона в международном формате, начинающийся с '+'")
+    phone_number: str = Field(default=..., description="Номер телефона в международном формате, начинающийся с '+' и  10-11 цифр")
     first_name: str = Field(default=..., min_length=1, max_length=50, description="Имя студента, от 1 до 50 символов")
     last_name: str = Field(default=..., min_length=1, max_length=50, description="Фамилия студента, от 1 до 50 символов")
     date_of_birth: date = Field(default=..., description="Дата рождения студента в формате ГГГГ-ММ-ДД")

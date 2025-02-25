@@ -1,6 +1,22 @@
-# Created by venv; see https://docs.python.org/3/library/venv.html
-*.env
+# Игнорирование виртуальной среды Python
+venv/
 .venv/
-Scripts/
-Lib/
 
+
+# Игнорирование файлов с окружением
+.env
+
+# Игнорирование скомпилированных файлов Python
+__pycache__/
+**/__pycache__/
+
+# Игнорирование настроек проекта для PyCharm
+.idea/
+**/.idea/
+
+Scripts/
+**/Scripts/
+Lib/
+**/Lib/
+Include/
+**/Include/
