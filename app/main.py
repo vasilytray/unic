@@ -1,6 +1,6 @@
 from fastapi import FastAPI, Depends, HTTPException
-from app.auth.utils import json_to_dict_list, add_student
-from app.auth.models import SStudent, RBStudent
+from app.auth.utils import json_to_dict_list, add_student, upd_student
+from app.auth.models import SStudent, RBStudent, SUpdateFilter, SStudentUpdate
 import os
 from typing import Optional, List
 
@@ -122,3 +122,11 @@ def add_student_handler(student: SStudent):
             status_code=400, 
             detail="Ошибка при добавлении студента"
         )
+
+@app.put("/update_student")
+def update_student_handler(filter_student: SUpdateFilter, new_data: SStudentUpdate):
+    check = upd_student(filter_student.dict(), new_data.dict())
+    if check:
+        return {"message": "Информация о студенте успешно обновлена!"}
+    else:
+        raise HTTPException(status_code=400, detail="Ошибка при обновлении информации о студенте")

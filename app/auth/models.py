@@ -49,3 +49,13 @@ class SStudent(BaseModel): # Pydantic-схема, SS - дополнительн�
         if values and values >= datetime.now().date():
             raise ValueError('Дата рождения должна быть в прошлом')
         return values
+
+# Определение модели для фильтрации данных студента
+class SUpdateFilter(BaseModel):
+    student_id: int
+
+
+# Определение модели для новых данных студента
+class SStudentUpdate(BaseModel):
+    course: int = Field(..., ge=1, le=5, description="Курс должен быть в диапазоне от 1 до 5")
+    major: Optional[Major] = Field(..., description="Специальность студента")

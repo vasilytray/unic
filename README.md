@@ -198,3 +198,33 @@ def add_student_handler(student: SStudent):
   "message": "Студент успешно добавлен!"
 }
 ```
+
+#### Обработка PUT методов в FastAPI
+
+Обратимся в файле app/auth/utils.py к функции обновления данных ```def upd_student(upd_filter: dict, new_data: dict)```
+
+И добавим в файл app/auth/model.py две модели:
+```py
+# Определение модели для фильтрации данных студента
+class SUpdateFilter(BaseModel):
+    student_id: int
+
+
+# Определение модели для новых данных студента
+class SStudentUpdate(BaseModel):
+    course: int = Field(..., ge=1, le=5, description="Курс должен быть в диапазоне от 1 до 5")
+    major: Optional[Major] = Field(..., description="Специальность студента")
+```
+
+Теперь добавим в main.py метод ```@app.put("/update_student") def update_student_handler(filter_student: SUpdateFilter, new_data: SStudentUpdate)```
+и импортируем из **utils.py** ```upd_student``` и из **models.py** ```SUpdateFilter, SStudentUpdate```
+
+Данный метод будет обновлять данные по конкретному студенту, принимая его ID. 
+
+В новых данных мы должны будем передать курс и специальность студента.
+
+```
+{
+  "message": "Информация о студенте успешно обновлена!"
+}
+```
