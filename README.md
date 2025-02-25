@@ -123,3 +123,65 @@ pip install --upgrade json_db_lite
 Смысл **POST** методов в том, чтоб отправить данные от клиента на сервер (базу данных). В качестве примера добавим нового студента в базу данных.
 
 Для начала напишем функции, которые позволят нам имитировать работу с базой данных, изменим файл **app/auth/utils.py** (предыдущий файл utils.py переименуем в utils_ch1.py - мы его использовали в первой части, оставим для информации)
+
+подробное описание каждого метода этой библиотеки описаны в статье [Новая библиотека для работы с JSON: json_db_lite](https://habr.com/ru/articles/826434/).
+
+Теперь правильно напишем **POST** запрос, который будет принимать данные о студенте для добавления, после будет выполнять проверку их валидности, а затем, если все данные валидные, мы будем добавлять новое значение в нашу мини базу данных (add_student).
+```py
+@app.post("/add_student")
+def add_student_handler(student: SStudent):
+    student_dict = student.model_dump() # поскольку dict - depricated, используем madel_dump
+    check = add_student(student_dict)
+    if check:
+        return {"message": "Студент успешно добавлен!"}
+    else:
+        return {"message": "Ошибка при добавлении студента"}
+```
+добавим  запрос вместе с импортом ```add_student``` в файл **model.py**
+```py
+from app.auth.utils import json_to_dict_list, add_student
+```
+и попробуем добавить нового студента, запустив FastAPI
+```json
+  {
+    "student_id": 11,
+    "phone_number": "+7016789",
+    "first_name": "Ольга",
+    "last_name": "Никитина",
+    "date_of_birth": "1999-06-20",
+    "email": "olga.nikitina@example.com",
+    "address": "г. Томск, ул. Ленина, д. 60, кв. 18",
+    "enrollment_year": 2018,
+    "major": "Экология",
+    "course": 3,
+    "special_notes": "Без особых примет"
+  }
+```
+1. первая попытка вернула ошибку с невалидным форматом телефонного номера.
+2. сделаем номер валидным и повтрорим попытку добавить пользователя.
+Действительно такой пользователь добавился, НО! уже есть такой с таким же ID, **нам необходимо сделать проверку на пользователя!**
+Добавим проверку по существующему email:
+```py
+@app.post("/add_student")
+def add_student_handler(student: SStudent):
+    # Получаем список всех студентов для проверки на совпадение email
+    students = json_to_dict_list()
+
+    # Проверяем наличие дубликата email
+    for existing_student in students:
+        if existing_student["email"] == student.email: # .lower() - не используем потому что в Pydantic-схеме
+            raise HTTPException(                       # уже автоматически приводится e-mail к нижнему регистру 
+                status_code=400,                       # посредством email: EmailStr
+                detail="Студент с таким email уже существует"
+            )
+    # Добавляем студента, если проверка пройдена
+    student_dict = student.model_dump()
+    check = add_student(student_dict)
+    if check:
+        return {"message": "Студент успешно добавлен!"}
+    else:
+        raise HTTPException(
+            status_code=400, 
+            detail="Ошибка при добавлении студента"
+        )
+```

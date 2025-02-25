@@ -1,5 +1,5 @@
 from fastapi import FastAPI, Depends, HTTPException
-from app.auth.utils import json_to_dict_list
+from app.auth.utils import json_to_dict_list, add_student
 from app.auth.models import SStudent, RBStudent
 import os
 from typing import Optional, List
@@ -22,11 +22,11 @@ app = FastAPI()
 def home_page():
     return {"message": "Привет, Главный!"}
 
-# Функция, которая будет возвращать список из всех наших студентов
+"""# Функция, которая будет возвращать список из всех наших студентов
 @app.get("/students")
 def get_all_students():
     return json_to_dict_list(path_to_json)
-"""
+
 # Параметры пути (path parameters) включены в сам маршрут URL и используются для идентификации ресурса
 @app.get("/students/{course}")
 def get_all_students_course(course: int):
@@ -36,11 +36,11 @@ def get_all_students_course(course: int):
         if student["course"] == course:
             return_list.append(student)
     return return_list
-
+"""
 # Параметры запроса , то что после ?
 @app.get("/students")
 def get_all_students(course: Optional[int] = None):
-    students = json_to_dict_list(path_to_json)
+    students = json_to_dict_list()
     if course is None:
         return students
     else:
@@ -49,12 +49,12 @@ def get_all_students(course: Optional[int] = None):
             if student["course"] == course:
                 return_list.append(student)
         return return_list
-"""
+
 
 @app.get("/students/{course}")
 def get_all_students_course(request_body: RBStudent = Depends())->List[SStudent]: 
     # оптимизируем запрос в эндпоинте  позставив класс аргументов для передачи
-    students = json_to_dict_list(path_to_json)
+    students = json_to_dict_list()
     filtered_students = []
     for student in students:
         if student["course"] == request_body.course:
@@ -73,7 +73,7 @@ def get_all_students_course(request_body: RBStudent = Depends())->List[SStudent]
 # Параметры пути (path parameters) включены в сам маршрут URL и используются для идентификации ресурса
 @app.get("/student/{student_id}")
 def get_all_students_course(student_id: int):
-    students = json_to_dict_list(path_to_json)
+    students = json_to_dict_list()
     return_list = []
     for student in students:
         if student["student_id"] == student_id:
@@ -95,7 +95,30 @@ def get_all_students(student_id: Optional[int] = None):
     """
 @app.get("/student")
 def get_student_from_param_id(student_id: int) -> SStudent:
-    students = json_to_dict_list(path_to_json)
+    students = json_to_dict_list()
     for student in students:
         if student["student_id"] == student_id:
             return student
+        
+@app.post("/add_student")
+def add_student_handler(student: SStudent):
+    # Получаем список всех студентов для проверки на совпадение email
+    students = json_to_dict_list()
+
+    # Проверяем наличие дубликата email
+    for existing_student in students:
+        if existing_student["email"] == student.email: # .lower() - не используем потому что в Pydantic-схеме
+            raise HTTPException(                       # уже автоматически приводится e-mail к нижнему регистру 
+                status_code=400,                       # посредством email: EmailStr
+                detail="Студент с таким email уже существует"
+            )
+    # Добавляем студента, если проверка пройдена
+    student_dict = student.model_dump()
+    check = add_student(student_dict)
+    if check:
+        return {"message": "Студент успешно добавлен!"}
+    else:
+        raise HTTPException(
+            status_code=400, 
+            detail="Ошибка при добавлении студента"
+        )
