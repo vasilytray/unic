@@ -87,4 +87,39 @@ def get_student_from_param_id(student_id: int) -> SStudent:
             return student
 ```
 Теперь, если информация о студенте, представленная в students.json не будет проходить валидацию,
-мы получим ошибку сервера с расшифровкой ошибки (ожидалось - получили)
+мы получим ошибку сервера с расшифровкой ошибки (ожидалось - получили).
+
+Изменим модель ответа ```@app.get("/students/{course}")``` в **app/main.py**  для списка студентов. Из модуля typing передаем List  и далее модель, говоря тем самым , что этот метод должен вернуть список студентов. и добавим ```request_body``` в обработчик параметров **course, major, enrollment_year**
+
+```py
+def get_all_students_course(course: int, major: Optional[str] = None, enrollment_year: Optional[int] = None) -> List[
+    SStudent]
+    ...
+```
+
+Оптимизируем передачу запросов аргументов (фильтров ) в адресе ссылки через создание класса с определением наших фильтров:
+
+```py
+class RBStudent:
+    def __init__(self, course: int, major: Optional[str] = None, enrollment_year: Optional[int] = None):
+        self.course: int = course
+        self.major: Optional[str] = major
+        self.enrollment_year: Optional[int] = enrollment_year
+```
+
+и передадим этот класс в наш эндпоинт, где выводим список студентов воспользоваться функцией Depends для обхода ошибки валидации поля ответа нашего класса ```app.main.RBStudent```:
+```py
+def get_all_students_course(request_body: RBStudent = Depends()) -> List[SStudent]:
+    students = json_to_dict_list(path_to_json)
+    ...
+```
+
+#### POST метод в FastApi
+
+Для дальнейшего изучения установим библиотеку json_db_lite и трансформируем наш JSON-файл со списком студентов в мини-базу.
+```sh
+pip install --upgrade json_db_lite
+```
+Смысл **POST** методов в том, чтоб отправить данные от клиента на сервер (базу данных). В качестве примера добавим нового студента в базу данных.
+
+Для начала напишем функции, которые позволят нам имитировать работу с базой данных, изменим файл **app/auth/utils.py**
