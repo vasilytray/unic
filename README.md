@@ -320,9 +320,9 @@ services:
     image: postgres:latest
     container_name: postgres_container
     environment:
-      POSTGRES_USER: postgres_user
-      POSTGRES_PASSWORD: postgres_password
-      POSTGRES_DB: postgres_db
+      POSTGRES_USER: justes12
+      POSTGRES_PASSWORD: BVlbd394-27(3)HksU
+      POSTGRES_DB: students_db
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5430:5432"
@@ -384,3 +384,10 @@ volumes:
 Определяет том **pgdata**, который используется для постоянного хранения данных PostgreSQL.
 
 #### Запуск PostgreSQL
+
+Выполняем команду 
+```sh
+docker-compose up -d
+```
+
+Эта команда запустит контейнер PostgreSQL в фоновом режиме **(-d)** на основе настроек, указанных в файле ``docker-compose.yml``
