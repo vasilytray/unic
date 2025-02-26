@@ -310,7 +310,7 @@ my_fastapi_project/
 ### Подготовка
 1. Развернем базу данных в PostgreSQL локально в Docker - контейнере.
 1.1. Поставим [Docker Desktop](https://www.docker.com/products/docker-desktop/)
-2.2. Создадим в корне проекта  файл docker‑compose.yml 
+2.2. Создадим в корне проекта  файл docker-compose.yml 
 
 ```yml
 version: '3.9'
@@ -320,9 +320,9 @@ services:
     image: postgres:latest
     container_name: postgres_container
     environment:
-      POSTGRES_USER: justes12
-      POSTGRES_PASSWORD: BVlbd394-27(3)HksU
-      POSTGRES_DB: students_db
+      POSTGRES_USER: amin
+      POSTGRES_PASSWORD: my_super_password
+      POSTGRES_DB: fast_api
       PGDATA: /var/lib/postgresql/data/pgdata
     ports:
       - "5430:5432"
@@ -385,9 +385,23 @@ volumes:
 
 #### Запуск PostgreSQL
 
-Выполняем команду 
+- Запустим Docker Desktop
+
+- Выполняем команду 
+
 ```sh
 docker-compose up -d
 ```
 
 Эта команда запустит контейнер PostgreSQL в фоновом режиме **(-d)** на основе настроек, указанных в файле ``docker-compose.yml``
+
+```sh
+docker-compose up -d
+time="2025-02-26T19:24:11+07:00" level=warning msg="C:\\www\\pyfapi\\unic\\docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+[+] Running 15/15
+ ✔ postgres Pulled                                                                                                                          27.6s 
+[+] Running 3/3
+ ✔ Network unic_default         Created                                                                                                      0.2s 
+ ✔ Volume "unic_pgdata"         Created                                                                                                      0.0s 
+ ✔ Container postgres_fast_api  Started
+```
