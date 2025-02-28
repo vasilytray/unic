@@ -9,7 +9,7 @@ class Settings(BaseSettings):
     DB_USER: str
     DB_PASSWORD: str
     model_config = SettingsConfigDict(
-        env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "/.venv/.env")
+        env_file=os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", ".env")
     )
 
 
