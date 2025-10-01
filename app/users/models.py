@@ -36,7 +36,7 @@ class Usergrup(Base):
     usergrup_description: Mapped[str_null_true]#[str] = mapped_column(String, nullable=True)
 
     users: Mapped[list["User"]] = relationship("User", back_populates="usergrup")
-    #count_users: Mapped[int] = mapped_column(server_default=text('0'))
+    count_users: Mapped[int] = mapped_column(server_default=text('0'))
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, usergrup_name={self.usergrup_name!r})"

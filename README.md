@@ -707,7 +707,114 @@ app.include_router(router_students) # подключить (включить) р
 Теперь можно запустить наше FastAPI приложение (не забудьте подготовить данные в таблицах). Из корня проекта выполняем команду:
 
 ```sh
-uvicorn app.main:app --reload
+uvicorn app.main:app --reload --port 8005
 ```
 
 Зайдем в документацию по адресу http://127.0.0.1:8000/docs и видим следующее:
+
+![Получить список всех студентов](/images/students.png)
+
+выполним функцию и получим  ответ и базы в формате JSON.
+
+Но в эндпоинтах никто не пишет прямые запросы к базе данных, да и сам запрос было бы неплохо «прокачать», чтоб он ещё и фильтрованные значения возвращал.
+Вынесем код взаимодействия с БД пока в файл dao.py
+А в роутере ипортируем класс StudentDAO, указанный в dao.py с использованием @classmetod. Мы сможем теперь импортировать класс и обращаться через точку, не объявляя каждый раз объект класса.
+
+Добавим модель ответа (response_model) в файл schemas.py с возможностями Pydantic/
+
+Функцию для получения всех студентов было бы неплохо вынести в общий класс, так как большой разницы нет, хотим мы получить всех студентов, всех преподавателей или полные данные с любой другой таблицы.
+
+Так мы и сделаем. Тем более мы уже подготовили под это дело специальный файл dao/base.py,
+но для того, чтобы класс был универсальным, как минимум, нужно добавить возможность указания модели, с которой должен работать класс и нужно изменить название метода и переменных.
+
+ После изменений код получил такой вид: 
+ ```py
+from sqlalchemy.future import select
+from app.database import async_session_maker
+
+
+class BaseDAO:
+    model = None
+    
+    @classmethod
+    async def find_all(cls):
+        async with async_session_maker() as session:
+            query = select(cls.model)
+            result = await session.execute(query)
+            return result.scalars().all()
+```
+
+Тут мы вынесли указание модели на уровень класса. Тем самым мы добавили возможность наследоваться от данного класса, передавая нужную модель (на примере далее это будет понятнее).
+
+Далее мы дали более универсальное название методу и переменным.
+
+Теперь классу StudentDAO необходимо наследоваться от созданного класса BaseDao.
+
+Внесем небольшие изменения в класс BaseDao.
+```py
+class BaseDAO:
+    model = None
+    
+    @classmethod
+    async def find_all(cls, **filter_by):
+        async with async_session_maker() as session:
+            query = select(cls.model).filter_by(**filter_by)
+            result = await session.execute(query)
+            return result.scalars().all()
+```
+
+В этом коде:
+
+Метод find_all класса BaseDAO теперь принимает неограниченное количество именованных аргументов через **filter_by.
+
+Внутри метода проверяется наличие переданных фильтров. Если filter_by содержит какие-то аргументы (например, course=4 и enrollment_year=2018), то создается запрос select(cls.model).filter_by(**filter_by), который фильтрует записи по этим аргументам.
+
+Если filter_by пуст или не указан, выполняется базовый запрос select(cls.model), который выбирает все записи без фильтрации.
+
+Запрос выполняется в асинхронной сессии async_session_maker(), результат извлекается и возвращается в виде списка объектов.
+
+Теперь метод find_all может использоваться с различными комбинациями фильтров, передаваемых в виде именованных аргументов или распакованных из словаря. 
+
+Теперь немного изменим наш эндпоинт, передав в него тело запроса. Для начала напишем код в файл rb.py
+```py
+class RBStudent:
+    def __init__(self, student_id: int | None = None,
+                 course: int | None = None,
+                 major_id: int | None = None,
+                 enrollment_year: int | None = None):
+        self.id = student_id
+        self.course = course
+        self.major_id = major_id
+        self.enrollment_year = enrollment_year
+
+        
+    def to_dict(self) -> dict:
+        data = {'id': self.id, 'course': self.course, 'major_id': self.major_id,
+                'enrollment_year': self.enrollment_year}
+        # Создаем копию словаря, чтобы избежать изменения словаря во время итерации
+        filtered_data = {key: value for key, value in data.items() if value is not None}
+        return filtered_data
+```
+
+>Внимание. Все параметры тела запроса у нас не обязательные. 
+Так-же, в данном классе вы можете увидеть метод, который возвращает данные в виде питоновского словаря. Это нам будет полезно, когда мы будем формировать наш SELECT запрос с фильтрами.
+
+Метод организован таким образом, что если значение у любого поля будет None, то в финальный словарь оно не попадет.
+
+Теперь было бы неплохо написать универсальную функцию, которая будет возвращать запись по id либо пускай она возвращает None если записи с таким id нет. В dao/base.py
+
+```py
+@classmethod
+async def find_one_or_none_by_id(cls, data_id: int):
+    async with async_session_maker() as session:
+        query = select(cls.model).filter_by(id=data_id)
+        result = await session.execute(query)
+        return result.scalar_one_or_none()
+```
+
+тут подойдет интеграция в эндпоинт с параметром пути. Добавим в роутер
+```py
+@router.get("/{id}", summary="Получить одного студента по id")
+async def get_student_by_id(student_id: int) -> SStudent | None:
+    return await StudentDAO.find_one_or_none_by_id(student_id)
+```

@@ -37,7 +37,7 @@ class Major(Base):
     major_description: Mapped[str_null_true]#[str] = mapped_column(String, nullable=True)
 
     students: Mapped[list["Student"]] = relationship("Student", back_populates="major")
-    #count_students: Mapped[int] = mapped_column(server_default=text('0'))
+    count_students: Mapped[int] = mapped_column(server_default=text('0'))
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, major_name={self.major_name!r})"
