@@ -818,3 +818,307 @@ async def find_one_or_none_by_id(cls, data_id: int):
 async def get_student_by_id(student_id: int) -> SStudent | None:
     return await StudentDAO.find_one_or_none_by_id(student_id)
 ```
+
+Отлично. Теперь давайте добавим метод, похожий на find_one_or_none_by_id, но пусть он принимает случайное значение (любой фильтр) и возвращает или одного студента или информацию о том, что студент с такими параметрами не найден.
+
+```py
+@classmethod
+async def find_one_or_none(cls, **filter_by):
+    async with async_session_maker() as session:
+        query = select(cls.model).filter_by(**filter_by)
+        result = await session.execute(query)
+        return result.scalar_one_or_none()
+```
+Напишем эндпонит.
+
+```py
+@router.get("/by_filter", summary="Получить одного студента по фильтру")
+async def get_student_by_filter(request_body: RBStudent = Depends()) -> SStudent | dict:
+    rez = await StudentDAO.find_one_or_none(**request_body.to_dict())
+    if rez is None:
+        return {'message': f'Студент с указанными вами параметрами не найден!'}
+    return rez
+```
+
+Это все круто, но что там с факультетами. Мы же не будем запоминать ID каждого факультета, а просто хотим получить такой расклад «Василий Петров — студент 2 курса факультета Информатики».
+
+Перед тем как начать писать функции давайте немного изменим наши модели таблиц. Предлагаю добавить специальный метод в models.py (в ``class Student(Base)``), который будет превращать объект алхимии, который мы получаем при SELECT запросе в питоновский словарь.
+
+Сделаем это по причине того, что, зачастую, удобнее работать со словарями, чем с объектами алхимии. К примеру, у словаря есть методы по добавлению, обновлению и удалению ключей. 
+
+```py
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "phone_number": self.phone_number,
+            "first_name": self.first_name,
+            "last_name": self.last_name,
+            "date_of_birth": self.date_of_birth,
+            "email": self.email,
+            "address": self.address,
+            "enrollment_year": self.enrollment_year,
+            "course": self.course,
+            "special_notes": self.special_notes,
+            "major_id": self.major_id
+        }
+```
+
+Мы добавили метод to_dict, который просто будет трансформировать все полученные данные в простой словарь. В модель Major можем метод не добавлять.
+
+Добавление метода to_dict() в класс Student не оказывает никакого влияния на структуру таблицы в базе данных. Этот метод представляет собой чисто программистский удобный интерфейс для преобразования объекта Student в формат словаря, что упрощает его использование в различных частях вашего приложения, таких как сериализация в JSON для API или вывод в консоль для отладки.
+
+Теперь давайте добавим эксклюзивный метод в файл dao.py, который будет возвращать полную информацию о студенте с названием факультета.
+
+ Файл students/dao.py:
+```py
+class StudentDAO(BaseDAO):
+    model = Student
+
+    @classmethod
+    async def find_full_data(cls, student_id: int):
+        async with async_session_maker() as session:
+            # Первый запрос для получения информации о студенте
+            query_student = select(cls.model).filter_by(id=student_id)
+            result_student = await session.execute(query_student)
+            student_info = result_student.scalar_one_or_none()
+
+            # Если студент не найден, возвращаем None
+            if not student_info:
+                return None
+
+            # Второй запрос для получения информации о специальности
+            query_major = select(Major).filter_by(id=student_info.major_id)
+            result_major = await session.execute(query_major)
+            major_info = result_major.scalar_one()
+
+            student_data = student_info.to_dict()
+            student_data['major'] = major_info.major_name
+
+            return student_data
+```
+Обратите внимание. Тут мы, сначала, проверили есть ли у нас студент с указанным id. Если его нет, то сценарий сразу остановится.
+
+В случае же если студент есть, то мы автоматически тянем информацию по его факультету. Мы можем это делать с уверенностью, так как в таблице со студентами есть прямая связь с таблицей факультетов (ForeignKey)
+
+Так как у нас добавилось новое поле — давайте изменим Pydantic модель Sstudent (``/students/schemas.py``). В нее нам необходимо добавить описание всего одного поля:
+```py
+major: Optional[str] = Field(..., description="Название факультета")
+```
+Напоминаю, что данное описание говорит, что поле major обязательное.
+
+Теперь внесем правки в эндпоинт.
+```py
+@router.get("/{id}", summary="Получить одного студента по id")
+async def get_student_by_id(student_id: int) -> SStudent | dict:
+    rez = await StudentDAO.find_full_data(student_id)
+    if rez is None:
+        return {'message': f'Студент с ID {student_id} не найден!'}
+    return rez
+```
+Запускаем и проверяем.
+
+my_fastapi_project/
+
+├── tests/
+│   └── (тут мы будем добавлять функции для Pytest)
+├── app/
+│   ├── database.py
+│   ├── config.py
+│   ├── main.py
+│   ├── majors/
+│   │  ├── router.py
+│   │  ├── schemas.py
+│   │  ├── dao.py
+│   │  └── rb.py
+│   ├── students/
+│   │  ├── router.py
+│   │  ├── schemas.py
+│   │  ├── dao.py
+│   │  └── rb.py
+│   ├── dao/
+│   │   └── base.py
+│   └── migration/
+│       └── (файлы миграций Alembic)
+├── alembic.ini
+├── .env
+└── requirements.txt
+
+### Добавление данных (POST)
+
+Напоминаю, что в нашей базе данных пока 2 таблицы: students и majors. При чем студента мы не сможем добавить с несуществующим факультетом. Это говорит о том, что нужно сначала добавить факультет, а после добавлять студента.
+
+Технически, и добавление факультета и добавление студента — это не более чем одинаковые действия (за исключением обновления счетчика студентов в таблице факультетов, но об этом чуть далее):
+
+принимаем данные
+
+записываем их в таблицу
+
+Но сущностей у нас, по сути, две. Следовательно, для чистоты кода мы можем разделить факультеты и студентов на две папки.
+
+После изменений структура проекта будет следующей:
+
+
+ удалил таблицы с базы данных и все файлы с папки migration/versions
+
+Теперь выполняем команду из корня проекта:
+
+alembic revision --autogenerate -m "Initial revision"
+Теперь выполним upgrade:
+
+alembic upgrade head
+После этого мы получили новые файлы, а вы теперь знаете как легко и просто расширять проект. В дальнейшем, при появлении новых папок, делайте следующее:
+
+Создаете папку
+
+Наполняете ее файлами
+
+Описываете модели
+
+В файле migration/env.py добавляете корректные импорты моделей как на примере выше
+
+Добавляете миграцию (ревизию)
+
+Обновляете
+
+Придерживайтесь такого алгоритма и у вас не будет никаких проблем, как с расширением проекта, так и с миграциями через Alembic.
+
+Мы можем сделать универсальный метод для добавления данных в таблицу.
+
+В файл dao/base.py добавим следующее:
+```py
+@classmethod
+async def add(cls, **values):
+    async with async_session_maker() as session:
+        async with session.begin():
+            new_instance = cls.model(**values)
+            session.add(new_instance)
+            try:
+                await session.commit()
+            except SQLAlchemyError as e:
+                await session.rollback()
+                raise e
+            return new_instance
+
+```
+
+Короткие комментарии:
+
+- Создаем асинхронную сессию.
+- Начинаем транзакцию.
+- Создаем новый экземпляр модели с переданными значениями.
+- Добавляем новый экземпляр в сессию.
+- Пытаемся зафиксировать изменения в базе данных.
+- В случае ошибки откатываем транзакцию и пробрасываем исключение дальше.
+- Возвращаем созданный экземпляр.
+
+Тут важно понять, что если мы не будем выполнять commit, то изменения в базе данных не сохраняться.
+
+Сам метод будет принимать некий массив данных (словарь), который мы после распакуем и добавим.
+
+Метод add будет работать и без блока ``async with session.begin()``, но он добавляет важное преимущество, обеспечивая управление транзакциями.
+
+Управление транзакциями:
+
+- Блок async with session.begin() автоматически начинает транзакцию и завершает её после выхода из блока, что гарантирует целостность данных.
+- Без этого блока вам нужно вручную начинать и завершать транзакцию.
+- Если вы хотите упростить метод и отказаться от использования блока async with session.begin(), вам нужно будет явно управлять транзакциями.
+
+Для простоты опишем Router из папки majors на добавление факультетов. Но, для начала, опишем модель Pydantic для добавления.
+
+Тут сразу хочу обратить внимание на один момент. Обычно отдельно описываются модели для добавления данных и для их получения, что, в целом, логично.
+
+Мы будем делать так-же. В своих проектах я обычно добавляю в название схемы пометку Add и Get. Удобно.
+
+Напишем модель (файл majors/schemas.py):
+```py
+from pydantic import BaseModel, Field
+
+
+class SMajorsAdd(BaseModel):
+    major_name: str = Field(..., description="Название факультета")
+    major_description: str = Field(None, description="Описание факультета")
+    count_students: int = Field(0, description="Количество студентов"
+```
+
+Тут мы не указывали id, так как наша база данных его и так сформирует.
+
+Теперь напишем Router для обработки POST запроса (файл majors/router.py)
+```py
+from fastapi import APIRouter
+from app.majors.dao import MajorsDAO
+from app.majors.schemas import SMajorsAdd
+
+
+router = APIRouter(prefix='/majors', tags=['Работа с факультетами'])
+
+
+@router.post("/add/")
+async def register_user(major: SMajorsAdd) -> dict:
+    check = await MajorsDAO.add(**major.dict())
+    if check:
+        return {"message": "Факультет успешно добавлен!", "major": major}
+    else:
+        return {"message": "Ошибка при добавлении факультета!"}
+```
+
+Подключим новый роутер в файл app/main.py:
+```py
+from fastapi import FastAPI
+from app.students.router import router as router_students
+from app.majors.router import router as router_majors
+
+app = FastAPI()
+
+
+@app.get("/")
+def home_page():
+    return {"message": "Привет, Хабр!"}
+
+
+app.include_router(router_students)
+app.include_router(router_majors)
+
+```
+Тестируем
+
+Загрузим файл .json со списком студентов 
+```sh
+curl -X 'POST' \
+  'http://127.0.0.1:8005/majors/add/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -F "file=@students_1part.json"
+  ```
+
+
+Загружем несколько факультетов черех bash
+```bash
+curl -X 'POST' \
+  'http://127.0.0.1:8005/majors/add/' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "majors": [
+    {
+      "major_name": "История",
+      "major_description": "Здесь учат опыту",
+      "count_students": 0
+    },
+    {
+      "major_name": "Биология",
+      "major_description": "Здесь учат на биологов",
+      "count_students": 0
+    },
+    {
+      "major_name": "Психология",
+      "major_description": "Здесь учат понимать себя и людей",
+      "count_students": 0
+    },
+    {
+      "major_name": "Экология",
+      "major_description": "Здесь учат береч людей",
+      "count_students": 0
+    }
+  ]
+}'
+```

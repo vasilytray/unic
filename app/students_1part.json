@@ -1,0 +1,123 @@
+[
+    {
+      "first_name": "Иван",
+      "last_name": "Иванов",
+      "date_of_birth": "1998-05-15",
+      "email": "ivan.ivanov@example.com",
+      "phone_number": "+71234567890",
+      "address": "г. Москва, ул. Пушкина, д. 10, кв. 5",
+      "enrollment_year": 2047,
+      "major_id": 1,
+      "course": 3,
+      "special_notes": "Без особых примет"
+    },
+    {
+
+      "first_name": "Елена",
+      "last_name": "Петрова",
+      "date_of_birth": "1999-08-20",
+      "email": "elena.petrova@example.com",
+      "phone_number": "+72345678901",
+      "address": "г. Санкт-Петербург, ул. Ленина, д. 5, кв. 8",
+      "enrollment_year": 2018,
+      "major_id": 8,
+      "course": 2,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Алексей",
+      "last_name": "Смирнов",
+      "date_of_birth": "2000-03-10",
+      "email": "alexey.smirnov@example.com",
+      "phone_number": "+73456789012",
+      "address": "г. Новосибирск, ул. Гагарина, д. 15, кв. 12",
+      "enrollment_year": 2019,
+      "major_id": 9,
+      "course": 1,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Мария",
+      "last_name": "Козлова",
+      "date_of_birth": "1997-11-25",
+      "email": "maria.kozlova@example.com",
+      "phone_number": "+74567890123",
+      "address": "г. Екатеринбург, ул. Пушкина, д. 20, кв. 3",
+      "enrollment_year": 2016,
+      "major_id": 9,
+      "course": 4,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Дмитрий",
+      "last_name": "Соколов",
+      "date_of_birth": "1999-04-03",
+      "email": "dmitry.sokolov@example.com",
+      "phone_number": "+7 (567) 890-1234",
+      "address": "г. Казань, ул. Маяковского, д. 25, кв. 7",
+      "enrollment_year": 2018,
+      "major_id": 3,
+      "course": 3,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Анна",
+      "last_name": "Игнатьева",
+      "date_of_birth": "2001-07-18",
+      "email": "anna.ignatyeva@example.com",
+      "phone_number": "+7 (678) 901-2345",
+      "address": "г. Волгоград, ул. Ленина, д. 30, кв. 15",
+      "enrollment_year": 2020,
+      "major_id": 10,
+      "course": 2,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Павел",
+      "last_name": "Кузнецов",
+      "date_of_birth": "1998-09-12",
+      "email": "pavel.kuznetsov@example.com",
+      "phone_number": "+7 (789) 012-3456",
+      "address": "г. Ростов-на-Дону, ул. Гагарина, д. 40, кв. 22",
+      "enrollment_year": 2017,
+      "major_id": 10,
+      "course": 4,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Светлана",
+      "last_name": "Морозова",
+      "date_of_birth": "2000-01-30",
+      "email": "svetlana.morozova@example.com",
+      "phone_number": "+7 (890) 123-4567",
+      "address": "г. Челябинск, ул. Кирова, д. 35, кв. 2",
+      "enrollment_year": 2019,
+      "major_id": 11,
+      "course": 1,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Константин",
+      "last_name": "Федоров",
+      "date_of_birth": "1997-12-05",
+      "email": "konstantin.fedorov@example.com",
+      "phone_number": "+7 (901) 234-5678",
+      "address": "г. Уфа, ул. Советская, д. 50, кв. 10",
+      "enrollment_year": 2016,
+      "major_id": 10,
+      "course": 4,
+      "special_notes": "Без особых примет"
+    },
+    {
+      "first_name": "Ольга",
+      "last_name": "Никитина",
+      "date_of_birth": "1999-06-20",
+      "email": "olga.nikitina@example.com",
+      "phone_number": "+7 (012) 345-6789",
+      "address": "г. Томск, ул. Ленина, д. 60, кв. 18",
+      "enrollment_year": 2018,
+      "major_id": 12,
+      "course": 3,
+      "special_notes": "Без особых примет"
+    }
+  ]
