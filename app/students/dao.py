@@ -1,10 +1,11 @@
-from sqlalchemy import event, update, delete
+from sqlalchemy import update, event, delete
 from sqlalchemy.future import select
 from sqlalchemy.orm import joinedload
 from app.dao.base import BaseDAO
 from app.majors.models import Major
 from app.students.models import Student
 from app.database import async_session_maker
+
 
 @event.listens_for(Student, 'after_insert')
 def receive_after_insert(mapper, connection, target):
@@ -24,6 +25,7 @@ def receive_after_delete(mapper, connection, target):
         .where(Major.id == major_id)
         .values(count_students=Major.count_students - 1)
     )
+
 
 class StudentDAO(BaseDAO):
     model = Student
@@ -46,22 +48,21 @@ class StudentDAO(BaseDAO):
             return students_data
 
     @classmethod
-    async def find_full_data(cls, student_id: int):
+    async def find_full_data(cls, student_id):
         async with async_session_maker() as session:
-            # Первый запрос для получения информации о студенте
-            query_student = select(cls.model).options(joinedload(cls.model.major)).filter_by(id=student_id)
-            result_student = await session.execute(query_student)
-            student_info = result_student.scalar_one_or_none()
+            # Query to get student info along with major info
+            query = select(cls.model).options(joinedload(cls.model.major)).filter_by(id=student_id)
+            result = await session.execute(query)
+            student_info = result.scalar_one_or_none()
 
-            # Если студент не найден, возвращаем None
+            # If student is not found, return None
             if not student_info:
                 return None
 
             student_data = student_info.to_dict()
             student_data['major'] = student_info.major.major_name
-
             return student_data
-        
+
     @classmethod
     async def add_student(cls, **student_data: dict):
         async with async_session_maker() as session:

@@ -1,16 +1,16 @@
-
-from sqlalchemy import  text
-from sqlalchemy.orm import relationship, Mapped, mapped_column
+from sqlalchemy import text
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base, str_uniq, int_pk, str_null_true
-from app.students.models import Student
+
 
 # создаем модель таблицы факультетов (majors)
 class Major(Base):
-    id: Mapped[int_pk] #= mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
-    major_name: Mapped[str_uniq] #= mapped_column(String, unique=True, nullable=False)
-    major_description: Mapped[str_null_true]#[str] = mapped_column(String, nullable=True)
+    id: Mapped[int_pk]
+    major_name: Mapped[str_uniq]
+    major_description: Mapped[str_null_true]
     count_students: Mapped[int] = mapped_column(server_default=text('0'))
-    
+
+    # Определяем отношения: один факультет может иметь много студентов
     students: Mapped[list["Student"]] = relationship("Student", back_populates="major")
     extend_existing = True
 
