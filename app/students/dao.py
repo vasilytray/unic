@@ -6,7 +6,9 @@ from app.majors.models import Major
 from app.students.models import Student
 from app.database import async_session_maker
 
-
+# мы создали событие after_insert для модели Student, 
+# которое автоматически обновляет счетчик студентов в 
+# таблице Major после добавления нового студента.
 @event.listens_for(Student, 'after_insert')
 def receive_after_insert(mapper, connection, target):
     major_id = target.major_id
@@ -16,7 +18,9 @@ def receive_after_insert(mapper, connection, target):
         .values(count_students=Major.count_students + 1)
     )
 
-
+# мы создали событие after_delete для модели Student, 
+# которое автоматически обновляет счетчик студентов в 
+# таблице Major после удаления студента.
 @event.listens_for(Student, 'after_delete')
 def receive_after_delete(mapper, connection, target):
     major_id = target.major_id
@@ -50,7 +54,7 @@ class StudentDAO(BaseDAO):
     @classmethod
     async def find_full_data(cls, student_id):
         async with async_session_maker() as session:
-            # Query to get student info along with major info
+            # Первый запрос для получения информации о студенте
             query = select(cls.model).options(joinedload(cls.model.major)).filter_by(id=student_id)
             result = await session.execute(query)
             student_info = result.scalar_one_or_none()

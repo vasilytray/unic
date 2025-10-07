@@ -19,14 +19,6 @@ async def get_student_by_id(student_id: int) -> SStudent | dict:
     return rez
 
 
-@router.get("/by_filter", summary="Получить одного студента по фильтру")
-async def get_student_by_filter(request_body: RBStudent = Depends()) -> SStudent | dict:
-    rez = await StudentDAO.find_one_or_none(**request_body.to_dict())
-    if rez is None:
-        return {'message': f'Студент с указанными вами параметрами не найден!'}
-    return rez
-
-
 @router.post("/add/")
 async def add_student(student: SStudentAdd) -> dict:
     check = await StudentDAO.add_student(**student.dict())

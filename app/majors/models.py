@@ -19,3 +19,11 @@ class Major(Base):
 
     def __repr__(self):
         return str(self)
+    
+    def to_dict(self):
+        return {
+            "id": self.id,
+            "major_name": self.major_name,
+            "major_description": self.major_description,
+            "count_students": self.count_students
+        }

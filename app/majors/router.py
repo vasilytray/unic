@@ -1,9 +1,13 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 from app.majors.dao import MajorsDAO
-from app.majors.schemas import SMajorsAdd, SMajorsUpdDesc
+from app.majors.rb import RBMajor
+from app.majors.schemas import SMajorsAdd, SMajorsUpdDesc, SMajors
 
 router = APIRouter(prefix='/majors', tags=['Работа с факультетами'])
 
+@router.get("/", summary="Получить все факультеты")
+async def get_all_majors(request_body: RBMajor = Depends()) -> list[SMajors]:
+    return await MajorsDAO.find_all(**request_body.to_dict())
 
 @router.post("/add/")
 async def add_major(major: SMajorsAdd) -> dict:

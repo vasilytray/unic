@@ -48,7 +48,7 @@ class User(Base):
             "email_verified": self.email_verified,
             "phone_verified": self.phone_verified,
             "user_status": self.user_status,
-            "verification_codes": self.verification_codes,
+            # "verification_codes": self.verification_codes,
             "special_notes": self.special_notes,
             "role_id": self.role_id,
             "tg_chat_id": self.tg_chat_id

@@ -8,3 +8,6 @@ alembic==1.16.5
 loguru==0.7.3
 uvicorn==0.37.0
 httpx==0.28.1
+python-jose
+bcrypt==4.0.1
+libpass==1.9.2

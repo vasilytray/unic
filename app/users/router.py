@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
+from app.users.auth import get_password_hash
 from app.users.dao import UserDAO
 from app.users.rb import RBUser
 from app.users.schemas import SUser, SUserAdd
