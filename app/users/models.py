@@ -10,9 +10,9 @@ from datetime import date
 class User(Base):
     id: Mapped[int_pk] #= mapped_column(Integer, primary_key=True, index=True, autoincrement=True)
     user_phone: Mapped[str_uniq] #= mapped_column(String, unique=True, index=True, nullable=False)
-    first_name: Mapped[str]
-    last_name: Mapped[str]
-    user_nick: Mapped[str_uniq] #= mapped_column(String, index=True, nullable=False)
+    first_name: Mapped[str] = mapped_column(index=True, nullable=True)
+    last_name: Mapped[str] = mapped_column(index=True, nullable=True)
+    user_nick: Mapped[str_uniq] = mapped_column(index=True, nullable=True)
     user_pass: Mapped[str] #= mapped_column(String, index=True, nullable=False)
     user_email: Mapped[str_uniq] #= mapped_column(String, unique=True, nullable=False)
     two_fa_auth: Mapped[int] = mapped_column(default=0, nullable=True, server_default=text('0'))
@@ -21,7 +21,7 @@ class User(Base):
     user_status: Mapped[int] = mapped_column(Integer, nullable=True)
     # verification_codes: Mapped[list["VerificationCode"]] = relationship(back_populates="user")
     special_notes: Mapped[str_null_true] #= mapped_column(String, nullable=True)
-    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=False)
+    role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=True, default=4)
     tg_chat_id: Mapped[Optional[str]] = mapped_column(nullable=True)
 
     # Определяем отношения: один пользователь имеет одну группу

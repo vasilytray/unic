@@ -11,7 +11,7 @@ async def get_all_majors(request_body: RBMajor = Depends()) -> list[SMajors]:
 
 @router.post("/add/")
 async def add_major(major: SMajorsAdd) -> dict:
-    check = await MajorsDAO.add(**major.dict())
+    check = await MajorsDAO.add(**major.model_dump())
     if check:
         return {"message": "Факультет успешно добавлен!", "major": major}
     else:

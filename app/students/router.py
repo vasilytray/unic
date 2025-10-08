@@ -21,7 +21,7 @@ async def get_student_by_id(student_id: int) -> SStudent | dict:
 
 @router.post("/add/")
 async def add_student(student: SStudentAdd) -> dict:
-    check = await StudentDAO.add_student(**student.dict())
+    check = await StudentDAO.add_student(**student.model_dump())
     if check:
         return {"message": "Студент успешно добавлен!", "student": student}
     else:

@@ -27,7 +27,7 @@ def receive_after_delete(mapper, connection, target):
     )
 
 
-class UserDAO(BaseDAO):
+class UsersDAO(BaseDAO):
     model = User
 
     @classmethod
@@ -42,8 +42,26 @@ class UserDAO(BaseDAO):
             if not user_info:
                 return None
 
-            user_data = user_info.to_dict()
-            user_data['role'] = user_info.role.role_name
+            # user_data = user_info.to_dict()
+            # user_data['role'] = user_info.role.role_name
+            # return user_data
+
+            user_data = {
+                "id": user_info.id,
+                "user_phone": user_info.user_phone,
+                "first_name": user_info.first_name,
+                "last_name": user_info.last_name,
+                "user_nick": user_info.user_nick,
+                "user_email": user_info.user_email,
+                "two_fa_auth": user_info.two_fa_auth,
+                "email_verified": user_info.email_verified,
+                "phone_verified": user_info.phone_verified,
+                "user_status": user_info.user_status,
+                "special_notes": user_info.special_notes,
+                "role_id": user_info.role_id,
+                "tg_chat_id": user_info.tg_chat_id,
+                "role": user_info.role
+            }
             return user_data
         
     @classmethod
@@ -56,6 +74,24 @@ class UserDAO(BaseDAO):
                 new_user_id = new_user.id
                 await session.commit()
                 return new_user_id
+            
+    @classmethod
+    async def find_all_with_roles(cls, **filter_by):
+        """Найти всех пользователей с загруженными ролями"""
+        async with async_session_maker() as session:
+            query = select(cls.model).options(joinedload(cls.model.role)).filter_by(**filter_by)
+            result = await session.execute(query)
+            return result.scalars().all()
+
+    @classmethod
+    async def find_by_email(cls, user_email: str):
+        """Найти пользователя по email"""
+        return await cls.find_one_or_none(user_email=user_email)
+
+    @classmethod
+    async def find_by_phone(cls, user_phone: str):
+        """Найти пользователя по телефону"""
+        return await cls.find_one_or_none(user_phone=user_phone)
 
     @classmethod
     async def delete_user_by_id(cls, user_id: int):
