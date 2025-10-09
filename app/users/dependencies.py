@@ -10,7 +10,7 @@ from app.users.dao import UsersDAO
 def get_token(request: Request):
     token = request.cookies.get('users_access_token')
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Token not found')
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен не найден')
     return token
 
   
@@ -32,20 +32,24 @@ async def get_current_user(token: str = Depends(get_token)):
 
     user = await UsersDAO.find_one_or_none_by_id(int(user_id))
     if not user:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='User not found')
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Пользователь не найден')
 
     return user
 
 async def get_current_admin(current_user: User = Depends(get_current_user)):
+    """Проверяет, что пользователь имеет роль Admin или SuperAdmin"""
     if current_user.is_admin:
         return current_user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
 
-async def get_current_superadmin(current_user: User = Depends(get_current_user)):
+async def get_current_super_admin(current_user: User = Depends(get_current_user)):
+    """Проверяет, что пользователь имеет роль SuperAdmin"""
     if current_user.is_super_admin:
         return current_user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
+
 async def get_current_moderator(current_user: User = Depends(get_current_user)):
+    """Проверяет, что пользователь имеет роль SuperAdmin"""
     if current_user.is_moderator:
         return current_user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')

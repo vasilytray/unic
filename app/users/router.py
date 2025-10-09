@@ -5,14 +5,14 @@ from app.users.rb import RBUser
 from app.users.models import User
 from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse, SUserAuth
 from app.users.schemas import SUserRegister
-from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_superadmin
+from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
 
 @router.post("/register/")
 async def register_user(user_data: SUserRegister) -> dict:
-     # Проверяем существование пользователя по email
-    user_by_email = await UsersDAO.find_one_or_none(user_email=user_data.user_email)
+    # Проверяем существование пользователя по email
+    user_by_email = await UsersDAO.find_by_email(user_data.user_email)
     if user_by_email:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -20,7 +20,7 @@ async def register_user(user_data: SUserRegister) -> dict:
         )
     
     # Проверяем существование пользователя по телефону
-    user_by_phone = await UsersDAO.find_one_or_none(user_phone=user_data.user_phone)
+    user_by_phone = await UsersDAO.find_by_phone(user_data.user_phone)
     if user_by_phone:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -29,7 +29,7 @@ async def register_user(user_data: SUserRegister) -> dict:
 
     user_dict = user_data.model_dump()
     user_dict['user_pass'] = get_password_hash(user_data.user_pass)
-    await UsersDAO.add(**user_dict)
+    await UsersDAO.add_user(**user_dict)
     return {'message': 'Вы успешно зарегистрированы!'}
 
 @router.post("/login/")
@@ -69,12 +69,8 @@ async def get_all_users(
             last_name=user.last_name,
             user_nick=user.user_nick,
             user_email=user.user_email,
-            two_fa_auth=user.two_fa_auth,
-            email_verified=user.email_verified,
-            phone_verified=user.phone_verified,
             user_status=user.user_status,
             role_id=user.role_id,
-            tg_chat_id=user.tg_chat_id,
             special_notes=user.special_notes,
             role=user.role  # объект Role автоматически преобразуется в RoleResponse
         )
@@ -83,7 +79,7 @@ async def get_all_users(
     return SUserListResponse(users=user_responses, total=len(user_responses))
 
 @router.get("/all_users/")
-async def get_all_users(user_data: User = Depends(get_current_superadmin)):
+async def get_all_users(user_data: User = Depends(get_current_super_admin)):
     return await UsersDAO.find_all()
 
 @router.get("/{user_id}", summary="Получить одного пользователя по id", response_model=SUserResponse)
@@ -98,22 +94,26 @@ async def get_user_by_id(
             detail=f'Пользователь с ID {user_id} не найден!'
         )
     
-    return SUserResponse(**user_data)
+    # return SUserResponse(**user_data)
+    return SUserResponse.model_validate(user_data)
 
 @router.post("/add/")
 async def add_user(
     user: SUserAdd,
     current_user: User = Depends(get_current_admin)
     ) -> dict:
+    """Добавить пользователя (только для админов)"""
     # Проверяем уникальность email и телефона
-    existing_user = await UsersDAO.find_one_or_none(user_email=user.user_email)
+    # existing_user = await UsersDAO.find_one_or_none(user_email=user.user_email)
+    existing_user = await UsersDAO.find_by_email(user.user_email)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail='Пользователь с таким email уже существует'
         )
     
-    existing_user = await UsersDAO.find_one_or_none(user_phone=user.user_phone)
+    # existing_user = await UsersDAO.find_one_or_none(user_phone=user.user_phone)
+    existing_user = await UsersDAO.find_by_phone(user.user_phone)
     if existing_user:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -135,8 +135,9 @@ async def add_user(
 @router.delete("/dell/{user_id}")
 async def dell_user_by_id(
     user_id: int,
-    current_user: User = Depends(get_current_superadmin)
+    current_user: User = Depends(get_current_super_admin)
     ) -> dict:
+    """Удалить пользователя (только для суперадминов)"""
     # Проверяем существование пользователя
     existing_user = await UsersDAO.find_one_or_none_by_id(user_id)
     if not existing_user:

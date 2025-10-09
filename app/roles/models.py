@@ -16,6 +16,11 @@ class Role(Base):
     
     #back_populates="role": указывает, что обратная связь идет через атрибут role в модели User.
 
+    @property
+    def is_admin_role(self) -> bool:
+        """Проверяет, является ли роль административной"""
+        return self.id in [1, 2]
+    
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, role_name={self.role_name!r})"
 
