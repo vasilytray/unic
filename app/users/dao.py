@@ -2,7 +2,7 @@ from sqlalchemy import select, delete
 from sqlalchemy.orm import joinedload
 from app.dao.base import BaseDAO
 from app.users.models import User
-from app.roles.models import Role
+from app.database import async_session_maker
 
 class UsersDAO(BaseDAO):
     model = User
@@ -15,7 +15,7 @@ class UsersDAO(BaseDAO):
     @classmethod
     async def find_all_with_roles(cls, **filter_by):
         """Найти всех пользователей с загруженными ролями"""
-        async with cls.async_session_maker() as session:
+        async with async_session_maker() as session:
             query = select(cls.model).options(joinedload(cls.model.role)).filter_by(**filter_by)
             result = await session.execute(query)
             return result.unique().scalars().all()

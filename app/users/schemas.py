@@ -21,7 +21,7 @@ class SUserBase(BaseModel):
     two_fa_auth: int = Field(0, ge=0, le=1)
     email_verified: int = Field(0, ge=0, le=1)
     phone_verified: int = Field(0, ge=0, le=1)
-    user_status: Optional[int] = Field(None, ge=0, description="статус пользователя")
+    user_status: Optional[int] = Field(None, ge=0, description="юридический статус пользователя")
 
     role_id: int = Field(..., ge=1, description="ID роли пользователя")
     role: Optional[str] = Field(..., description="Название роли")

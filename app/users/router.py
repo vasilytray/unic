@@ -82,6 +82,10 @@ async def get_all_users(
 async def get_all_users(user_data: User = Depends(get_current_super_admin)):
     return await UsersDAO.find_all()
 
+@router.get("/all_users/")
+async def get_all_users(user_data: User = Depends(get_current_super_admin)):
+    return await UsersDAO.find_all()
+
 @router.get("/{user_id}", summary="Получить одного пользователя по id", response_model=SUserResponse)
 async def get_user_by_id(
     user_id: int,
@@ -96,6 +100,7 @@ async def get_user_by_id(
     
     # return SUserResponse(**user_data)
     return SUserResponse.model_validate(user_data)
+
 
 @router.post("/add/")
 async def add_user(
