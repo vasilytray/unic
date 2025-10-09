@@ -42,7 +42,7 @@ class User(Base):
             "first_name": self.first_name,
             "last_name": self.last_name,
             "user_nick": self.first_name,
-            "user_pass": self.user_pass,
+            # "user_pass": self.user_pass,
             "user_email": self.user_email,
             "two_fa_auth": self.two_fa_auth,
             "email_verified": self.email_verified,
@@ -53,3 +53,17 @@ class User(Base):
             "role_id": self.role_id,
             "tg_chat_id": self.tg_chat_id
         }
+
+    @property
+    def is_admin(self) -> bool:
+        """Проверяет, является ли пользователь администратором"""
+        return self.role_id in [1, 2]  # Предполагая, что 1=SuperAdmin, 2=Admin
+    
+    @property
+    def is_super_admin(self) -> bool:
+        """Проверяет, является ли пользователь суперадмином"""
+        return self.role_id == 1  # Предполагая, что 1=SuperAdmin
+    @property
+    def is_moderator(self) -> bool:
+        """Проверяет, является ли пользователь администратором"""
+        return self.role_id in [1, 2, 3]  # Предполагая, что 1=SuperAdmin, 2=Admin, 3=Moderator

@@ -1,9 +1,11 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from app.users.auth import get_password_hash
+from fastapi import APIRouter, Depends, HTTPException, status, Response
+from app.users.auth import get_password_hash, authenticate_user, create_access_token
 from app.users.dao import UsersDAO
 from app.users.rb import RBUser
-from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse
+from app.users.models import User
+from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse, SUserAuth
 from app.users.schemas import SUserRegister
+from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_superadmin
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
 
@@ -30,10 +32,30 @@ async def register_user(user_data: SUserRegister) -> dict:
     await UsersDAO.add(**user_dict)
     return {'message': 'Вы успешно зарегистрированы!'}
 
+@router.post("/login/")
+async def auth_user(response: Response, user_data: SUserAuth):
+    check = await authenticate_user(user_email=user_data.user_email, user_pass=user_data.user_pass)
+    if check is None:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+                            detail='Неверно указаны почта или пароль')
+    access_token = create_access_token({"sub": str(check.id)})
+    response.set_cookie(key="users_access_token", value=access_token, httponly=True)
+    return {'access_token': access_token, 'refresh_token': None}
 
+@router.get("/me/")
+async def get_me(user_data: User = Depends(get_current_user)):
+    return user_data
+
+@router.post("/logout/")
+async def logout_user(response: Response):
+    response.delete_cookie(key="users_access_token")
+    return {'message': 'Пользователь успешно вышел из системы'}
 
 @router.get("/", summary="Получить список всех пользователей", response_model=SUserListResponse)
-async def get_all_users(request_body: RBUser = Depends()) -> SUserListResponse:
+async def get_all_users(
+    current_user: User = Depends(get_current_admin),
+    request_body: RBUser = Depends()
+    ) -> SUserListResponse:
     # Используем метод с загрузкой ролей
     users = await UsersDAO.find_all_with_roles(**request_body.to_dict())
     
@@ -59,9 +81,16 @@ async def get_all_users(request_body: RBUser = Depends()) -> SUserListResponse:
         user_responses.append(user_response)
     
     return SUserListResponse(users=user_responses, total=len(user_responses))
-    
+
+@router.get("/all_users/")
+async def get_all_users(user_data: User = Depends(get_current_superadmin)):
+    return await UsersDAO.find_all()
+
 @router.get("/{user_id}", summary="Получить одного пользователя по id", response_model=SUserResponse)
-async def get_user_by_id(user_id: int) -> SUserResponse:
+async def get_user_by_id(
+    user_id: int,
+    current_user: User = Depends(get_current_moderator)
+    ) -> SUserResponse:
     user_data = await UsersDAO.find_full_data(user_id)
     if user_data is None:
         raise HTTPException(
@@ -72,7 +101,10 @@ async def get_user_by_id(user_id: int) -> SUserResponse:
     return SUserResponse(**user_data)
 
 @router.post("/add/")
-async def add_user(user: SUserAdd) -> dict:
+async def add_user(
+    user: SUserAdd,
+    current_user: User = Depends(get_current_admin)
+    ) -> dict:
     # Проверяем уникальность email и телефона
     existing_user = await UsersDAO.find_one_or_none(user_email=user.user_email)
     if existing_user:
@@ -101,7 +133,10 @@ async def add_user(user: SUserAdd) -> dict:
         )
 
 @router.delete("/dell/{user_id}")
-async def dell_user_by_id(user_id: int) -> dict:
+async def dell_user_by_id(
+    user_id: int,
+    current_user: User = Depends(get_current_superadmin)
+    ) -> dict:
     # Проверяем существование пользователя
     existing_user = await UsersDAO.find_one_or_none_by_id(user_id)
     if not existing_user:
