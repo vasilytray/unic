@@ -211,3 +211,26 @@ class SUserAdd(BaseModel):
         if not re.match(r'^\+\d{10,11}$', value):
             raise ValueError('Номер телефона должен начинаться с "+" и содержать от 10 до 11 цифр')
         return value
+
+class SUserEmailRequest(BaseModel):
+    user_email: EmailStr = Field(..., description="Электронная почта пользователя")
+
+class SUserByEmailResponse(BaseModel):
+    id: int
+    user_phone: str = Field(..., description="Номер телефона в международном формате, начинающийся с '+'")
+    first_name: str = Field(..., description="Имя пользователя")
+    last_name: str = Field(..., description="Фамилия пользователя")
+    user_nick: Optional[str] = Field(..., description="Ник пользователя")
+    user_email: EmailStr = Field(..., description="Электронная почта пользователя")
+    two_fa_auth: int = Field(0, ge=0, le=1)
+    email_verified: int = Field(0, ge=0, le=1)
+    phone_verified: int = Field(0, ge=0, le=1)
+    user_status: Optional[int] = Field(None, description="Статус пользователя")
+    role_id: int = Field(..., description="ID роли пользователя")
+    tg_chat_id: Optional[str] = Field(None, description="ID telegram чата")
+    special_notes: Optional[str] = Field(None, description="Дополнительные заметки")
+    role: Optional[RoleResponse] = None
+    created_at: Optional[datetime] = None
+    updated_at: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)

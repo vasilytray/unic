@@ -24,6 +24,14 @@ class UsersDAO(BaseDAO):
     async def find_by_email(cls, user_email: str):
         """Найти пользователя по email"""
         return await cls.find_one_or_none(user_email=user_email)
+    
+    @classmethod
+    async def find_by_email_with_role(cls, user_email: str):
+        """Найти пользователя по email с загруженной ролью"""
+        async with async_session_maker() as session:
+            query = select(cls.model).options(joinedload(cls.model.role)).filter_by(user_email=user_email)
+            result = await session.execute(query)
+            return result.unique().scalar_one_or_none()
 
     @classmethod
     async def find_by_phone(cls, user_phone: str):

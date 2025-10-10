@@ -4,7 +4,7 @@ from app.users.dao import UsersDAO
 from app.users.rb import RBUser
 from app.users.models import User
 from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse, SUserAuth
-from app.users.schemas import SUserRegister
+from app.users.schemas import SUserRegister, SUserByEmailResponse
 from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
@@ -100,6 +100,36 @@ async def get_user_by_id(
     
     # return SUserResponse(**user_data)
     return SUserResponse.model_validate(user_data)
+
+@router.get("/by-email/", 
+           summary="Получить пользователя по email", 
+           response_model=SUserByEmailResponse)
+async def get_user_by_email(
+    email: str,
+    current_user: User = Depends(get_current_user)
+) -> SUserByEmailResponse:
+    """
+    Получить информацию о пользователе по email.
+    
+    Правила доступа:
+    - Админы и суперадмины: могут видеть любого пользователя
+    - Обычные пользователи: могут видеть только свою информацию
+    """
+    # Проверяем права доступа
+    if current_user.role_id not in [1, 2] and current_user.user_email != email:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Вы можете просматривать только свою информацию"
+        )
+    
+    user_data = await UsersDAO.find_by_email_with_role(email)
+    if user_data is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f'Пользователь с email {email} не найден!'
+        )
+    
+    return SUserByEmailResponse.model_validate(user_data)
 
 
 @router.post("/add/")
