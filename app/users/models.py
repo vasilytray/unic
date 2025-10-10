@@ -1,10 +1,32 @@
 
-from sqlalchemy import Integer, ForeignKey, Text, text
+from sqlalchemy import Integer, ForeignKey, Text, text, event, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
 from typing import Optional
 from app.database import Base, str_uniq, int_pk, str_null_true
-from datetime import date
+from datetime import date, datetime, timezone
 #from app.roles.models import Role
+
+class UserLog(Base):
+    __tablename__ = "users_logs"
+    
+    id: Mapped[int_pk]
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    action_type: Mapped[str] = mapped_column(nullable=False)  # 'role_change', 'profile_update', etc.
+    old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    changed_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    
+    # Связи
+    user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="logs")
+    changer: Mapped["User"] = relationship("User", foreign_keys=[changed_by], back_populates="changes_made")
+
+    def __str__(self):
+        return f"{self.__class__.__name__}(id={self.id}, user_id={self.user_id}, action={self.action_type})"
+
+    def __repr__(self):
+        return str(self)
 
 # создаем модель таблицы Пользователей
 class User(Base):
@@ -26,6 +48,9 @@ class User(Base):
 
     # Определяем отношения: один пользователь имеет одну группу
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="joined")
+
+    logs: Mapped[list["UserLog"]] = relationship("UserLog", foreign_keys=[UserLog.user_id], back_populates="user")
+    changes_made: Mapped[list["UserLog"]] = relationship("UserLog", foreign_keys=[UserLog.changed_by], back_populates="changer")
 
     def __str__(self):
         return (f"{self.__class__.__name__}(id={self.id}, "
@@ -67,3 +92,4 @@ class User(Base):
     def is_moderator(self) -> bool:
         """Проверяет, является ли пользователь администратором"""
         return self.role_id in [1, 2, 3]  # Предполагая, что 1=SuperAdmin, 2=Admin, 3=Moderator
+    

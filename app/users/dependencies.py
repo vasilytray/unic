@@ -98,3 +98,33 @@ async def validate_role_change(current_user: User, target_user_id: int, new_role
         )
     
     return target_user
+
+async def log_role_change(user_id: int, old_role_id: int, new_role_id: int, changed_by: int, description: str = None):
+    """Создать запись в логе об изменении роли"""
+    from app.roles.dao import RolesDAO
+    from app.users.dao import UserLogsDAO
+    
+    old_role_name = await RolesDAO.get_role_name_by_id(old_role_id)
+    new_role_name = await RolesDAO.get_role_name_by_id(new_role_id)
+    
+    log_data = {
+        'user_id': user_id,
+        'action_type': 'role_change',
+        'old_value': f"role_id:{old_role_id}:{old_role_name}",
+        'new_value': f"role_id:{new_role_id}:{new_role_name}",
+        'description': description or f"Изменение роли с '{old_role_name}' на '{new_role_name}'",
+        'changed_by': changed_by
+    }
+    
+    await UserLogsDAO.create_log(**log_data)
+    return log_data
+
+async def update_role_counters(old_role_id: int, new_role_id: int):
+    """Обновить счетчики пользователей в ролях"""
+    from app.roles.models import Role
+    
+    if old_role_id and old_role_id != new_role_id:
+        await Role.decrement_count(old_role_id)
+    
+    if new_role_id != old_role_id:
+        await Role.increment_count(new_role_id)

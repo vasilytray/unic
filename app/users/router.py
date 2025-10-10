@@ -1,13 +1,15 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
+from typing import Optional
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
-from app.users.dao import UsersDAO
+from app.users.dao import UsersDAO, UserLogsDAO
 from app.roles.dao import RolesDAO
 from app.users.rb import RBUser
 from app.users.models import User
 from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse, SUserAuth
 from app.users.schemas import SUserRegister, SUserByEmailResponse
 from app.users.schemas import SUserUpdateRole, SUserUpdateRoleResponse, SUserUpdateRoleByEmail, SUserRoleInfo
-from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin, validate_role_change
+from app.users.schemas import SUserLogResponse, SUserLogsList, SRoleChangeLog
+from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin, validate_role_change, log_role_change
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
 
@@ -178,11 +180,6 @@ async def update_user_role(
 ) -> SUserUpdateRoleResponse:
     """
     Изменить роль пользователя по ID (только для суперадминистратора).
-    
-    Ограничения:
-    - Нельзя изменить свою собственную роль
-    - Нельзя назначить роль суперадминистратора
-    - Нельзя изменять роль другого суперадминистратора
     """
     # Валидация изменения роли
     target_user = await validate_role_change(super_admin, role_data.user_id, role_data.new_role_id)
@@ -199,7 +196,7 @@ async def update_user_role(
     old_role_id = target_user.role_id
     old_role_name = await RolesDAO.get_role_name_by_id(old_role_id)
     
-    # Обновляем роль
+    # Обновляем роль (используем обновленный метод с счетчиками)
     success = await UsersDAO.update_user_role(role_data.user_id, role_data.new_role_id)
     
     if not success:
@@ -207,6 +204,15 @@ async def update_user_role(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка при обновлении роли пользователя"
         )
+    
+    # Логируем изменение роли
+    await log_role_change(
+        user_id=role_data.user_id,
+        old_role_id=old_role_id,
+        new_role_id=role_data.new_role_id,
+        changed_by=super_admin.id,
+        description=f"Роль изменена суперадминистратором {super_admin.user_email}"
+    )
     
     return SUserUpdateRoleResponse(
         message="Роль пользователя успешно обновлена",
@@ -259,6 +265,15 @@ async def update_user_role_by_email(
             detail="Ошибка при обновлении роли пользователя"
         )
     
+    # Логируем изменение роли
+    await log_role_change(
+        user_id=target_user.id,
+        old_role_id=old_role_id,
+        new_role_id=role_data.new_role_id,
+        changed_by=super_admin.id,
+        description=f"Роль изменена по email суперадминистратором {super_admin.user_email}"
+    )
+    
     return SUserUpdateRoleResponse(
         message="Роль пользователя успешно обновлена",
         user_id=target_user.id,
@@ -267,6 +282,132 @@ async def update_user_role_by_email(
         user_email=target_user.user_email,
         role_name=new_role.role_name
     )
+
+# Новые роутеры для работы с логами
+@router.get("/logs/", 
+           summary="Получить логи пользователей", 
+           response_model=SUserLogsList)
+async def get_users_logs(
+    user_id: Optional[int] = None,
+    action_type: Optional[str] = None,
+    limit: int = 50,
+    offset: int = 0,
+    admin_user: User = Depends(get_current_super_admin)
+) -> SUserLogsList:
+    """
+    Получить логи пользователей (только для администраторов).
+    """
+    # Собираем фильтры
+    filters = {}
+    if user_id:
+        filters['user_id'] = user_id
+    if action_type:
+        filters['action_type'] = action_type
+    
+    # Получаем логи с помощью BaseDAO
+    logs = await UserLogsDAO.find_all(**filters)
+    
+    # Сортируем и ограничиваем результат (так как BaseDAO не поддерживает сортировку и пагинацию напрямую)
+    sorted_logs = sorted(logs, key=lambda x: x.created_at, reverse=True)
+    paginated_logs = sorted_logs[offset:offset + limit]
+    
+    # Преобразуем в схему ответа
+    log_responses = []
+    for log in paginated_logs:
+        # Получаем связанные данные пользователей
+        user = await UsersDAO.find_one_or_none_by_id(log.user_id) if log.user_id else None
+        changer = await UsersDAO.find_one_or_none_by_id(log.changed_by) if log.changed_by else None
+        
+        log_response = SUserLogResponse(
+            id=log.id,
+            user_id=log.user_id,
+            changed_by=log.changed_by,
+            action_type=log.action_type,
+            old_value=log.old_value,
+            new_value=log.new_value,
+            description=log.description,
+            created_at=log.created_at,
+            user_email=user.user_email if user else None,
+            changer_email=changer.user_email if changer else None,
+            user_name=f"{user.first_name} {user.last_name}" if user else None,
+            changer_name=f"{changer.first_name} {changer.last_name}" if changer else None
+        )
+        log_responses.append(log_response)
+    
+    return SUserLogsList(logs=log_responses, total=len(sorted_logs))
+
+@router.get("/logs/role-changes/", 
+           summary="Получить логи изменений ролей", 
+           response_model=list[SRoleChangeLog])
+async def get_role_change_logs(
+    user_id: Optional[int] = None,
+    days: int = 30,
+    admin_user: User = Depends(get_current_super_admin)
+) -> list[SRoleChangeLog]:
+    """
+    Получить логи изменений ролей (только для администраторов).
+    """
+    logs = await UserLogsDAO.get_recent_role_changes(days=days)
+    
+    # Если нужна фильтрация по конкретному пользователю
+    if user_id:
+        logs = [log for log in logs if log.user_id == user_id]
+    
+    role_change_logs = []
+    for log in logs:
+        if log.action_type == 'role_change':
+            # Парсим old_value и new_value
+            old_role_info = log.old_value.split(':') if log.old_value else ['', '', '']
+            new_role_info = log.new_value.split(':') if log.new_value else ['', '', '']
+            
+            role_change_log = SRoleChangeLog(
+                id=log.id,
+                user_id=log.user_id,
+                user_email=log.user.user_email if log.user else "Unknown",
+                user_name=f"{log.user.first_name} {log.user.last_name}" if log.user else "Unknown User",
+                old_role=old_role_info[2] if len(old_role_info) > 2 else "Unknown",
+                new_role=new_role_info[2] if len(new_role_info) > 2 else "Unknown",
+                changed_by=f"{log.changer.first_name} {log.changer.last_name}" if log.changer else "Unknown",
+                changer_email=log.changer.user_email if log.changer else "Unknown",
+                created_at=log.created_at
+            )
+            role_change_logs.append(role_change_log)
+    
+    return role_change_logs
+
+@router.get("/{user_id}/logs/", 
+           summary="Получить логи конкретного пользователя", 
+           response_model=SUserLogsList)
+async def get_user_logs(
+    user_id: int,
+    limit: int = 50,
+    offset: int = 0,
+    admin_user: User = Depends(get_current_super_admin)
+) -> SUserLogsList:
+    """
+    Получить логи конкретного пользователя (только для администраторов).
+    """
+    logs = await UserLogsDAO.get_user_logs(user_id, limit=limit, offset=offset)
+    
+    log_responses = []
+    for log in logs:
+        log_response = SUserLogResponse(
+            id=log.id,
+            user_id=log.user_id,
+            changed_by=log.changed_by,
+            action_type=log.action_type,
+            old_value=log.old_value,
+            new_value=log.new_value,
+            description=log.description,
+            created_at=log.created_at,
+            user_email=log.user.user_email if log.user else None,
+            changer_email=log.changer.user_email if log.changer else None,
+            user_name=f"{log.user.first_name} {log.user.last_name}" if log.user else None,
+            changer_name=f"{log.changer.first_name} {log.changer.last_name}" if log.changer else None
+        )
+        log_responses.append(log_response)
+    
+    return SUserLogsList(logs=log_responses, total=len(log_responses))
 
 @router.get("/available-roles/", 
            summary="Получить список доступных ролей для назначения")

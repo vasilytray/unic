@@ -264,3 +264,42 @@ class SUserRoleInfo(BaseModel):
     new_role_name: str
 
     model_config = ConfigDict(from_attributes=True)
+
+class SUserLogBase(BaseModel):
+    action_type: str = Field(..., description="Тип действия")
+    old_value: Optional[str] = Field(None, description="Старое значение")
+    new_value: Optional[str] = Field(None, description="Новое значение")
+    description: Optional[str] = Field(None, description="Описание действия")
+
+class SUserLogCreate(SUserLogBase):
+    user_id: int = Field(..., description="ID пользователя")
+    changed_by: int = Field(..., description="ID пользователя, который внес изменение")
+
+class SUserLogResponse(SUserLogBase):
+    id: int
+    user_id: int
+    changed_by: int
+    created_at: datetime
+    user_email: Optional[str] = None
+    changer_email: Optional[str] = None
+    user_name: Optional[str] = None
+    changer_name: Optional[str] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SUserLogsList(BaseModel):
+    logs: list[SUserLogResponse]
+    total: int
+
+class SRoleChangeLog(BaseModel):
+    id: int
+    user_id: int
+    user_email: str
+    user_name: str
+    old_role: str
+    new_role: str
+    changed_by: str
+    changer_email: str
+    created_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)

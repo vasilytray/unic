@@ -27,7 +27,31 @@ class Role(Base):
     @property
     def is_admin_role(self) -> bool:
         """Проверяет, является ли роль административной"""
-        return self.id in [1, 2]
+        return self.id in [RoleTypes.SUPER_ADMIN, RoleTypes.ADMIN]
+    
+    @classmethod
+    async def increment_count(cls, role_id: int):
+        """Увеличить счетчик пользователей роли"""
+        from app.database import async_session_maker
+        from sqlalchemy import update
+        
+        async with async_session_maker() as session:
+            await session.execute(
+                update(cls).where(cls.id == role_id).values(count_users=cls.count_users + 1)
+            )
+            await session.commit()
+    
+    @classmethod
+    async def decrement_count(cls, role_id: int):
+        """Уменьшить счетчик пользователей роли"""
+        from app.database import async_session_maker
+        from sqlalchemy import update
+        
+        async with async_session_maker() as session:
+            await session.execute(
+                update(cls).where(cls.id == role_id).values(count_users=cls.count_users - 1)
+            )
+            await session.commit()
     
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, role_name={self.role_name!r})"
