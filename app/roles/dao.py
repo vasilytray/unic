@@ -1,7 +1,7 @@
 from sqlalchemy import select, delete
 from sqlalchemy.orm import selectinload
 from app.dao.base import BaseDAO
-from app.roles.models import Role
+from app.roles.models import Role, RoleTypes
 
 class RolesDAO(BaseDAO):
     model = Role
@@ -15,6 +15,25 @@ class RolesDAO(BaseDAO):
     async def find_by_name(cls, role_name: str):
         """Найти роль по имени"""
         return await cls.find_one_or_none(role_name=role_name)
+    
+    @classmethod
+    async def find_by_id(cls, role_id: int):
+        """Найти роль по ID"""
+        return await cls.find_one_or_none(id=role_id)
+
+    @classmethod
+    async def get_role_name_by_id(cls, role_id: int) -> str:
+        """Получить название роли по ID"""
+        role = await cls.find_by_id(role_id)
+        return role.role_name if role else "Неизвестная роль"
+
+    @classmethod
+    async def get_available_roles(cls, exclude_super_admin: bool = False):
+        """Получить список доступных ролей для назначения"""
+        roles = await cls.find_all()
+        if exclude_super_admin:
+            roles = [role for role in roles if role.id != RoleTypes.SUPER_ADMIN]
+        return roles
 
     @classmethod
     async def delete_role_by_name(cls, role_name: str) -> bool:

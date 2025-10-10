@@ -1,11 +1,13 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
 from app.users.dao import UsersDAO
+from app.roles.dao import RolesDAO
 from app.users.rb import RBUser
 from app.users.models import User
 from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse, SUserAuth
 from app.users.schemas import SUserRegister, SUserByEmailResponse
-from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin
+from app.users.schemas import SUserUpdateRole, SUserUpdateRoleResponse, SUserUpdateRoleByEmail, SUserRoleInfo
+from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin, validate_role_change
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
 
@@ -166,6 +168,153 @@ async def add_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Ошибка при добавлении пользователя!"
         )
+    
+@router.put("/update-role/", 
+           summary="Изменить роль пользователя по ID", 
+           response_model=SUserUpdateRoleResponse)
+async def update_user_role(
+    role_data: SUserUpdateRole,
+    super_admin: User = Depends(get_current_super_admin)
+) -> SUserUpdateRoleResponse:
+    """
+    Изменить роль пользователя по ID (только для суперадминистратора).
+    
+    Ограничения:
+    - Нельзя изменить свою собственную роль
+    - Нельзя назначить роль суперадминистратора
+    - Нельзя изменять роль другого суперадминистратора
+    """
+    # Валидация изменения роли
+    target_user = await validate_role_change(super_admin, role_data.user_id, role_data.new_role_id)
+    
+    # Проверяем существование новой роли
+    new_role = await RolesDAO.find_by_id(role_data.new_role_id)
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Роль с ID {role_data.new_role_id} не найдена"
+        )
+    
+    # Сохраняем старую роль
+    old_role_id = target_user.role_id
+    old_role_name = await RolesDAO.get_role_name_by_id(old_role_id)
+    
+    # Обновляем роль
+    success = await UsersDAO.update_user_role(role_data.user_id, role_data.new_role_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при обновлении роли пользователя"
+        )
+    
+    return SUserUpdateRoleResponse(
+        message="Роль пользователя успешно обновлена",
+        user_id=role_data.user_id,
+        old_role_id=old_role_id,
+        new_role_id=role_data.new_role_id,
+        user_email=target_user.user_email,
+        role_name=new_role.role_name
+    )
+
+@router.put("/update-role-by-email/", 
+           summary="Изменить роль пользователя по email", 
+           response_model=SUserUpdateRoleResponse)
+async def update_user_role_by_email(
+    role_data: SUserUpdateRoleByEmail,
+    super_admin: User = Depends(get_current_super_admin)
+) -> SUserUpdateRoleResponse:
+    """
+    Изменить роль пользователя по email (только для суперадминистратора).
+    """
+    # Находим пользователя по email
+    target_user = await UsersDAO.find_by_email_with_role(role_data.user_email)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Пользователь с email {role_data.user_email} не найден"
+        )
+    
+    # Валидация изменения роли
+    await validate_role_change(super_admin, target_user.id, role_data.new_role_id)
+    
+    # Проверяем существование новой роли
+    new_role = await RolesDAO.find_by_id(role_data.new_role_id)
+    if not new_role:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Роль с ID {role_data.new_role_id} не найдена"
+        )
+    
+    # Сохраняем старую роль
+    old_role_id = target_user.role_id
+    old_role_name = await RolesDAO.get_role_name_by_id(old_role_id)
+    
+    # Обновляем роль
+    success = await UsersDAO.update_user_role_by_email(role_data.user_email, role_data.new_role_id)
+    
+    if not success:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Ошибка при обновлении роли пользователя"
+        )
+    
+    return SUserUpdateRoleResponse(
+        message="Роль пользователя успешно обновлена",
+        user_id=target_user.id,
+        old_role_id=old_role_id,
+        new_role_id=role_data.new_role_id,
+        user_email=target_user.user_email,
+        role_name=new_role.role_name
+    )
+
+@router.get("/available-roles/", 
+           summary="Получить список доступных ролей для назначения")
+async def get_available_roles(
+    super_admin: User = Depends(get_current_super_admin)
+) -> list[dict]:
+    """
+    Получить список ролей, которые можно назначать пользователям.
+    Исключает роль суперадминистратора.
+    """
+    roles = await RolesDAO.get_available_roles(exclude_super_admin=True)
+    return [
+        {
+            "id": role.id,
+            "name": role.role_name,
+            "description": role.role_description,
+            "user_count": role.count_users
+        }
+        for role in roles
+    ]
+
+@router.get("/{user_id}/role-info", 
+           summary="Получить информацию о роли пользователя", 
+           response_model=SUserRoleInfo)
+async def get_user_role_info(
+    user_id: int,
+    super_admin: User = Depends(get_current_super_admin)
+) -> SUserRoleInfo:
+    """
+    Получить подробную информацию о роли пользователя.
+    """
+    user = await UsersDAO.get_user_with_role_info(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Пользователь с ID {user_id} не найден"
+        )
+    
+    return SUserRoleInfo(
+        id=user.id,
+        user_email=user.user_email,
+        first_name=user.first_name,
+        last_name=user.last_name,
+        current_role_id=user.role_id,
+        current_role_name=user.role.role_name,
+        new_role_id=user.role_id,  # Текущая роль как новая (по умолчанию)
+        new_role_name=user.role.role_name
+    )
 
 @router.delete("/dell/{user_id}")
 async def dell_user_by_id(

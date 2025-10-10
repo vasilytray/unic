@@ -49,3 +49,37 @@ class UsersDAO(BaseDAO):
         """Удалить пользователя по ID"""
         result = await cls.delete(id=user_id)
         return result > 0
+    
+    @classmethod
+    async def update_user_role(cls, user_id: int, new_role_id: int) -> bool:
+        """Обновить роль пользователя"""
+        result = await cls.update(
+            filter_by={'id': user_id},
+            role_id=new_role_id
+        )
+        return result > 0
+
+    @classmethod
+    async def update_user_role_by_email(cls, user_email: str, new_role_id: int) -> bool:
+        """Обновить роль пользователя по email"""
+        result = await cls.update(
+            filter_by={'user_email': user_email},
+            role_id=new_role_id
+        )
+        return result > 0
+
+    @classmethod
+    async def get_user_with_role_info(cls, user_id: int):
+        """Получить пользователя с информацией о роли"""
+        async with async_session_maker() as session:
+            query = select(cls.model).options(joinedload(cls.model.role)).filter_by(id=user_id)
+            result = await session.execute(query)
+            return result.unique().scalar_one_or_none()
+
+    @classmethod
+    async def get_user_with_role_info_by_email(cls, user_email: str):
+        """Получить пользователя с информацией о роли по email"""
+        async with async_session_maker() as session:
+            query = select(cls.model).options(joinedload(cls.model.role)).filter_by(user_email=user_email)
+            result = await session.execute(query)
+            return result.unique().scalar_one_or_none()

@@ -5,6 +5,7 @@ from app.config import get_auth_data
 from app.users.models import User
 from app.exceptions import TokenExpiredException, NoJwtException, NoUserIdException, ForbiddenException
 from app.users.dao import UsersDAO
+from app.roles.models import Role, RoleTypes
 
 
 def get_token(request: Request):
@@ -53,3 +54,47 @@ async def get_current_moderator(current_user: User = Depends(get_current_user)):
     if current_user.is_moderator:
         return current_user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
+
+async def get_current_super_admin(current_user: User = Depends(get_current_user)):
+    """Проверяет, что пользователь имеет роль SuperAdmin"""
+    if current_user.is_super_admin:
+        return current_user
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN, 
+        detail='Требуются права суперадминистратора!'
+    )
+
+async def validate_role_change(current_user: User, target_user_id: int, new_role_id: int):
+    """
+    Валидация изменения роли пользователя
+    """
+    # Суперадмин не может изменить свою роль
+    if current_user.id == target_user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Вы не можете изменить свою собственную роль"
+        )
+    
+    # Нельзя назначить роль суперадмина
+    if new_role_id == RoleTypes.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нельзя назначить роль суперадминистратора"
+        )
+    
+    # Получаем информацию о целевом пользователе
+    target_user = await UsersDAO.find_one_or_none_by_id(target_user_id)
+    if not target_user:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Пользователь не найден"
+        )
+    
+    # Нельзя изменять роль другого суперадмина
+    if target_user.role_id == RoleTypes.SUPER_ADMIN:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Нельзя изменять роль другого суперадминистратора"
+        )
+    
+    return target_user

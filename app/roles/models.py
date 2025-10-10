@@ -4,6 +4,14 @@ from sqlalchemy.orm import relationship, Mapped, mapped_column
 from app.database import Base, str_uniq, int_pk, str_null_true
 from app.users.models import User
 
+# Константы для ID ролей
+class RoleTypes:
+    SUPER_ADMIN = 1
+    ADMIN = 2
+    MODERATOR = 3
+    USER = 4
+    GUEST = 5
+
 # создаем модель таблицы групп пользователей (Role)
 class Role(Base):
     id: Mapped[int_pk] #= mapped_column(Integer, primary_key=True, index=True, autoincrement=True)

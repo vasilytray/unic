@@ -234,3 +234,33 @@ class SUserByEmailResponse(BaseModel):
     updated_at: Optional[datetime] = None
 
     model_config = ConfigDict(from_attributes=True)
+
+'''Схема для изменения роли'''
+
+class SUserUpdateRole(BaseModel):
+    user_id: int = Field(..., description="ID пользователя")
+    new_role_id: int = Field(..., ge=1, description="Новый ID роли пользователя")
+
+class SUserUpdateRoleResponse(BaseModel):
+    message: str
+    user_id: int
+    old_role_id: int
+    new_role_id: int
+    user_email: str
+    role_name: str
+
+class SUserUpdateRoleByEmail(BaseModel):
+    user_email: EmailStr = Field(..., description="Email пользователя")
+    new_role_id: int = Field(..., ge=1, description="Новый ID роли пользователя")
+
+class SUserRoleInfo(BaseModel):
+    id: int
+    user_email: str
+    first_name: str
+    last_name: str
+    current_role_id: int
+    current_role_name: str
+    new_role_id: int
+    new_role_name: str
+
+    model_config = ConfigDict(from_attributes=True)
