@@ -3,6 +3,8 @@ from app.students.dao import StudentDAO
 from app.students.rb import RBStudent
 from app.students.schemas import SStudent, SStudentAdd
 
+
+
 router = APIRouter(prefix='/students', tags=['Работа со студентами'])
 
 
@@ -26,7 +28,6 @@ async def add_student(student: SStudentAdd) -> dict:
         return {"message": "Студент успешно добавлен!", "student": student}
     else:
         return {"message": "Ошибка при добавлении студента!"}
-
 
 @router.delete("/dell/{student_id}")
 async def dell_student_by_id(student_id: int) -> dict:

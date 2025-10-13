@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from typing import Optional
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
+from app.exceptions import UserAlreadyExistsException, IncorrectEmailOrPasswordException
 from app.users.dao import UsersDAO, UserLogsDAO
 from app.roles.dao import RolesDAO
 from app.users.rb import RBUser
@@ -34,17 +35,18 @@ async def register_user(user_data: SUserRegister) -> dict:
     user_dict = user_data.model_dump()
     user_dict['user_pass'] = get_password_hash(user_data.user_pass)
     await UsersDAO.add_user(**user_dict)
-    return {'message': 'Вы успешно зарегистрированы!'}
+    return {'message': f'Вы успешно зарегистрированы!'}
 
 @router.post("/login/")
 async def auth_user(response: Response, user_data: SUserAuth):
     check = await authenticate_user(user_email=user_data.user_email, user_pass=user_data.user_pass)
     if check is None:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-                            detail='Неверно указаны почта или пароль')
+        # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+        #                     detail='Неверно указаны почта или пароль')
+         raise IncorrectEmailOrPasswordException
     access_token = create_access_token({"sub": str(check.id)})
     response.set_cookie(key="users_access_token", value=access_token, httponly=True)
-    return {'access_token': access_token, 'refresh_token': None}
+    return {'ok': True, 'access_token': access_token, 'refresh_token': None, 'message': 'Авторизация успешна!'}
 
 @router.get("/me/")
 async def get_me(user_data: User = Depends(get_current_user)):
