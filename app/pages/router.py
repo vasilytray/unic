@@ -6,7 +6,7 @@ from app.students.router import get_all_students, get_student_by_id
 from app.users.router import get_me
 
 # router = APIRouter(prefix='/pages', tags=['Фронтенд'])
-router = APIRouter(prefix='/pages', tags=['Фронтенд'])
+router = APIRouter(prefix='/lk', tags=['Фронтенд'])
 templates = Jinja2Templates(directory='app/templates')
 
 

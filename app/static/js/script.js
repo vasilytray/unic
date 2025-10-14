@@ -1,3 +1,18 @@
+// Обработка кликов по вкладкам
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => showTab(tab.dataset.tab));
+});
+
+// Функция отображения выбранной вкладки
+function showTab(tabName) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.form').forEach(form => form.classList.remove('active'));
+
+    document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`${tabName}-form`).classList.add('active');
+}
+
+
 async function regFunction(event) {
     event.preventDefault();  // Предотвращаем стандартное действие формы
 
@@ -6,9 +21,14 @@ async function regFunction(event) {
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
 
+    // Клиентская проверка совпадения паролей
+    if (data.user_pass !== data.user_pass_check) {
+        alert('Пароли не совпадают!');
+        return;
+    }
+
     try {
         const response = await fetch('/users/register/', {
-        // const response = await fetch('/users/register', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
@@ -27,7 +47,7 @@ async function regFunction(event) {
         const result = await response.json();
 
         if (result.message) {  // Проверяем наличие сообщения о успешной регистрации
-            window.location.href = '/pages/login';  // Перенаправляем пользователя на страницу логина
+            window.location.href = '/users/';  // Перенаправляем пользователя на страницу логина
         } else {
             alert(result.message || 'Неизвестная ошибка');
         }
@@ -36,6 +56,7 @@ async function regFunction(event) {
         alert('Произошла ошибка при регистрации. Пожалуйста, попробуйте снова.');
     }
 }
+
 
 // Функция для отображения ошибок
 function displayErrors(errorData) {
@@ -88,7 +109,7 @@ async function loginFunction(event) {
         const result = await response.json();
 
         if (result.message) {  // Проверяем наличие сообщения о успешной регистрации
-            window.location.href = '/pages/profile';  // Перенаправляем пользователя на страницу логина
+            window.location.href = '/lk/profile';  // Перенаправляем пользователя на страницу логина
         } else {
             alert(result.message || 'Неизвестная ошибка');
         }
@@ -111,7 +132,7 @@ async function logoutFunction() {
         // Проверка ответа сервера
         if (response.ok) {
             // Перенаправляем пользователя на страницу логина
-            window.location.href = '/pages/login';
+            window.location.href = '/users/';
         } else {
             // Чтение возможного сообщения об ошибке от сервера
             const errorData = await response.json();

@@ -16,6 +16,7 @@ from app.students.models import Student
 from app.majors.models import Major
 from app.users.models import User
 from app.roles.models import Role
+from app.chat.models import Message
 from app.verificationcodes.models import VerificationCode
 
 # this is the Alembic Config object, which provides

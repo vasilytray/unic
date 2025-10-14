@@ -1,7 +1,11 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
 from typing import Optional
+import re
+import random
+from fastapi.requests import Request
+from fastapi.responses import HTMLResponse
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
-from app.exceptions import UserAlreadyExistsException, IncorrectEmailOrPasswordException
+from app.exceptions import UserAlreadyExistsException, IncorrectEmailOrPasswordException, PasswordMismatchException
 from app.users.dao import UsersDAO, UserLogsDAO
 from app.roles.dao import RolesDAO
 from app.users.rb import RBUser
@@ -12,10 +16,28 @@ from app.users.schemas import SUserUpdateRole, SUserUpdateRoleResponse, SUserUpd
 from app.users.schemas import SUserLogResponse, SUserLogsList, SRoleChangeLog
 from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin, validate_role_change, log_role_change
 
+from fastapi.templating import Jinja2Templates
+
+templates = Jinja2Templates(directory='app/templates')
+
+# router = APIRouter(prefix='/auth', tags=['Auth'])
+
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
+
+# @router.get("/users", response_model=List[SUserRead])
+# async def get_users():
+#     users_all = await UsersDAO.find_all()
+#     # Используем генераторное выражение для создания списка
+#     return [{'id': user.id, 'name': user.name} for user in users_all]
+
+@router.get("/", response_class=HTMLResponse, summary="Страница авторизации")
+async def get_categories(request: Request):
+    return templates.TemplateResponse("auth.html", {"request": request})
 
 @router.post("/register/")
 async def register_user(user_data: SUserRegister) -> dict:
+    from app.users.dao import UsersDAO
+    
     # Проверяем существование пользователя по email
     user_by_email = await UsersDAO.find_by_email(user_data.user_email)
     if user_by_email:
@@ -32,10 +54,108 @@ async def register_user(user_data: SUserRegister) -> dict:
             detail='Пользователь с таким телефоном уже существует'
         )
 
-    user_dict = user_data.model_dump()
+    # Генерируем уникальный ник, если не указан
+    user_dict = user_data.model_dump(exclude={'user_pass_check'})
+    
+    if not user_dict.get('user_nick'):
+        user_dict['user_nick'] = await generate_unique_nick(
+            user_data.first_name, 
+            user_data.last_name
+        )
+
     user_dict['user_pass'] = get_password_hash(user_data.user_pass)
+    
     await UsersDAO.add_user(**user_dict)
     return {'message': f'Вы успешно зарегистрированы!'}
+
+
+async def generate_unique_nick(first_name: str, last_name: str) -> str:
+    """Генерирует уникальный никнейм"""
+    from app.users.dao import UsersDAO
+    
+    base_nick = _create_base_nick(first_name, last_name)
+    unique_nick = base_nick
+    counter = 1
+    
+    # Проверяем уникальность ника и добавляем цифры при необходимости
+    while counter <= 100:
+        existing_user = await UsersDAO.find_one_or_none(user_nick=unique_nick)
+        if not existing_user:
+            break
+        
+        # Если ник уже существует, добавляем цифру
+        if counter == 1:
+            unique_nick = f"{base_nick}_{counter}"
+        else:
+            # Обрезаем base_nick если нужно место для цифр
+            max_base_length = 47 - len(str(counter))
+            truncated_base = base_nick[:max_base_length]
+            unique_nick = f"{truncated_base}_{counter}"
+        
+        counter += 1
+    
+    # Если все варианты заняты, генерируем случайный
+    if counter > 100:
+        import random
+        unique_nick = f"user_{random.randint(10000, 99999)}"
+    
+    return unique_nick
+
+
+def _create_base_nick(first_name: str, last_name: str) -> str:
+    """Создает базовый никнейм из имени и фамилии"""
+    import re
+    
+    # Транслитерация кириллицы в латиницу
+    translit_map = {
+        'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
+        'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
+        'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
+        'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '',
+        'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
+        'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
+        'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
+        'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
+        'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch', 'Ъ': '',
+        'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
+    }
+    
+    def transliterate(text: str) -> str:
+        """Транслитерирует кириллический текст в латиницу"""
+        result = []
+        for char in text:
+            if char in translit_map:
+                result.append(translit_map[char])
+            elif char.isalnum():
+                result.append(char)
+            else:
+                result.append('_')
+        return ''.join(result)
+    
+    # Транслитерируем имя и фамилию
+    first_latin = transliterate(first_name.lower())
+    last_latin = transliterate(last_name.lower())
+    
+    # Убираем лишние символы и создаем ник
+    first_clean = re.sub(r'[^a-z0-9]', '', first_latin)
+    last_clean = re.sub(r'[^a-z0-9]', '', last_latin)
+    
+    # Если после очистки что-то пустое, используем альтернативные варианты
+    if not first_clean and not last_clean:
+        return f"user_{hash(first_name + last_name) % 10000:04d}"
+    elif not first_clean:
+        return last_clean[:47] if len(last_clean) > 47 else last_clean
+    elif not last_clean:
+        return first_clean[:47] if len(first_clean) > 47 else first_clean
+    
+    # Создаем базовый ник
+    base_nick = f"{first_clean}_{last_clean}"
+    
+    # Обрезаем если слишком длинный
+    if len(base_nick) > 50:
+        base_nick = base_nick[:50]
+    
+    return base_nick
 
 @router.post("/login/")
 async def auth_user(response: Response, user_data: SUserAuth):
