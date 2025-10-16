@@ -12,8 +12,8 @@ __pycache__/
 **/__pycache__/
 
 # Игнорирование настроек проекта для PyCharm
-.idea/
-**/.idea/
+.ideas/
+**/.ideas/
 
 Scripts/
 **/Scripts/

@@ -1,5 +1,6 @@
 from fastapi import Request, HTTPException, status, Depends
 from jose import jwt, JWTError
+from typing import Optional
 from datetime import datetime, timezone
 from app.config import get_auth_data
 from app.users.models import User
@@ -16,6 +17,10 @@ def get_token(request: Request):
 
   
 async def get_current_user(token: str = Depends(get_token)):
+    """
+    Основная зависимость для получения текущего пользователя
+    Используется для защищенных эндпоинтов
+    """
     try:
         auth_data = get_auth_data()
         payload = jwt.decode(token, auth_data['secret_key'], algorithms=[auth_data['algorithm']])
@@ -37,15 +42,41 @@ async def get_current_user(token: str = Depends(get_token)):
 
     return user
 
+async def get_optional_user(request: Request) -> Optional[User]:
+    """
+    Зависимость для опционального получения пользователя
+    Возвращает пользователя если авторизован, иначе None
+    Используется для главной страницы и публичных эндпоинтов
+    """
+    try:
+        token = request.cookies.get('users_access_token')
+        if not token:
+            return None
+            
+        auth_data = get_auth_data()
+        payload = jwt.decode(token, auth_data['secret_key'], algorithms=[auth_data['algorithm']])
+        
+        # Проверяем срок действия токена
+        expire = payload.get('exp')
+        if expire:
+            expire_time = datetime.fromtimestamp(int(expire), tz=timezone.utc)
+            if expire_time < datetime.now(timezone.utc):
+                return None
+        
+        user_id = payload.get('sub')
+        if not user_id:
+            return None
+            
+        user = await UsersDAO.find_one_or_none_by_id(int(user_id))
+        return user
+        
+    except (JWTError, Exception):
+        # Любая ошибка - считаем пользователя неавторизованным
+        return None
+
 async def get_current_admin(current_user: User = Depends(get_current_user)):
     """Проверяет, что пользователь имеет роль Admin или SuperAdmin"""
     if current_user.is_admin:
-        return current_user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
-
-async def get_current_super_admin(current_user: User = Depends(get_current_user)):
-    """Проверяет, что пользователь имеет роль SuperAdmin"""
-    if current_user.is_super_admin:
         return current_user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
 

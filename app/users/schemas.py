@@ -240,3 +240,7 @@ class SRoleChangeLog(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class SUserRead(BaseModel):
+    id: int = Field(..., description="Идентификатор пользователя")
+    user_name: str = Field(..., min_length=3, max_length=50, description="Имя, от 3 до 50 символов")

@@ -44,10 +44,10 @@ app.include_router(router_pages)
 @app.exception_handler(TokenExpiredException)
 async def token_expired_exception_handler(request: Request, exc: HTTPException):
     # Возвращаем редирект на страницу /auth
-    return RedirectResponse(url="/users")
+    return RedirectResponse(url="/auth")
 
 # Обработчик для TokenNoFound
 @app.exception_handler(TokenNoFoundException)
 async def token_no_found_exception_handler(request: Request, exc: HTTPException):
     # Возвращаем редирект на страницу /auth
-    return RedirectResponse(url="/users")
+    return RedirectResponse(url="/auth")

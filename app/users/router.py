@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status, Response
-from typing import Optional
+from typing import Optional, List
 import re
 import random
 from fastapi.requests import Request
@@ -13,7 +13,7 @@ from app.users.models import User
 from app.users.schemas import SUserBase, SUserAdd, SUserResponse, SUserListResponse, SUserAuth
 from app.users.schemas import SUserRegister, SUserByEmailResponse
 from app.users.schemas import SUserUpdateRole, SUserUpdateRoleResponse, SUserUpdateRoleByEmail, SUserRoleInfo
-from app.users.schemas import SUserLogResponse, SUserLogsList, SRoleChangeLog
+from app.users.schemas import SUserLogResponse, SUserLogsList, SRoleChangeLog, SUserRead
 from app.users.dependencies import get_current_user, get_current_admin, get_current_moderator, get_current_super_admin, validate_role_change, log_role_change
 
 from fastapi.templating import Jinja2Templates
@@ -24,11 +24,11 @@ templates = Jinja2Templates(directory='app/templates')
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
 
-# @router.get("/users", response_model=List[SUserRead])
-# async def get_users():
-#     users_all = await UsersDAO.find_all()
-#     # Используем генераторное выражение для создания списка
-#     return [{'id': user.id, 'name': user.name} for user in users_all]
+@router.get("/list_users", response_model=List[SUserRead])
+async def get_users():
+    users_all = await UsersDAO.find_all()
+    # Используем генераторное выражение для создания списка
+    return [{'id': user.id, 'name': user.name} for user in users_all]
 
 @router.get("/", response_class=HTMLResponse, summary="Страница авторизации")
 async def get_categories(request: Request):
@@ -166,7 +166,7 @@ async def auth_user(response: Response, user_data: SUserAuth):
          raise IncorrectEmailOrPasswordException
     access_token = create_access_token({"sub": str(check.id)})
     response.set_cookie(key="users_access_token", value=access_token, httponly=True)
-    return {'ok': True, 'access_token': access_token, 'refresh_token': None, 'message': 'Авторизация успешна!'}
+    return {'ok': True, 'access_token': access_token, 'refresh_token': None, 'message': f'Авторизация успешна!'}
 
 @router.get("/me/")
 async def get_me(user_data: User = Depends(get_current_user)):
@@ -177,7 +177,7 @@ async def logout_user(response: Response):
     response.delete_cookie(key="users_access_token")
     return {'message': 'Пользователь успешно вышел из системы'}
 
-@router.get("/", summary="Получить список всех пользователей", response_model=SUserListResponse)
+@router.get("/all/", summary="Получить список всех пользователей", response_model=SUserListResponse)
 async def get_all_users(
     current_user: User = Depends(get_current_admin),
     request_body: RBUser = Depends()
@@ -208,9 +208,9 @@ async def get_all_users(
 async def get_all_users(user_data: User = Depends(get_current_super_admin)):
     return await UsersDAO.find_all()
 
-@router.get("/all_users/")
-async def get_all_users(user_data: User = Depends(get_current_super_admin)):
-    return await UsersDAO.find_all()
+# @router.get("/all_users/")
+# async def get_all_users(user_data: User = Depends(get_current_super_admin)):
+#     return await UsersDAO.find_all()
 
 @router.get("/{user_id}", summary="Получить одного пользователя по id", response_model=SUserResponse)
 async def get_user_by_id(

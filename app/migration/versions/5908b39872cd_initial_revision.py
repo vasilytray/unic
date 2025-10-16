@@ -1,8 +1,8 @@
 """Initial revision
 
-Revision ID: c3b7c41d15c4
+Revision ID: 5908b39872cd
 Revises: 
-Create Date: 2025-10-02 23:15:37.812697
+Create Date: 2025-10-15 15:59:23.011251
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = 'c3b7c41d15c4'
+revision: str = '5908b39872cd'
 down_revision: Union[str, Sequence[str], None] = None
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
@@ -51,6 +51,7 @@ def upgrade() -> None:
     sa.Column('address', sa.Text(), nullable=False),
     sa.Column('enrollment_year', sa.Integer(), nullable=False),
     sa.Column('course', sa.Integer(), nullable=False),
+    sa.Column('photo', sa.Text(), nullable=True),
     sa.Column('special_notes', sa.String(), nullable=True),
     sa.Column('major_id', sa.Integer(), nullable=False),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
@@ -60,30 +61,56 @@ def upgrade() -> None:
     sa.UniqueConstraint('email'),
     sa.UniqueConstraint('phone_number')
     )
-    op.create_index(op.f('ix_students_first_name'), 'students', ['first_name'], unique=False)
-    op.create_index(op.f('ix_students_last_name'), 'students', ['last_name'], unique=False)
     op.create_table('users',
     sa.Column('id', sa.Integer(), nullable=False),
     sa.Column('user_phone', sa.String(), nullable=False),
-    sa.Column('first_name', sa.String(), nullable=False),
-    sa.Column('last_name', sa.String(), nullable=False),
-    sa.Column('user_nick', sa.String(), nullable=False),
+    sa.Column('first_name', sa.String(), nullable=True),
+    sa.Column('last_name', sa.String(), nullable=True),
+    sa.Column('user_nick', sa.String(), nullable=True),
     sa.Column('user_pass', sa.String(), nullable=False),
     sa.Column('user_email', sa.String(), nullable=False),
-    sa.Column('two_fa_auth', sa.Integer(), nullable=False),
-    sa.Column('email_verified', sa.Integer(), nullable=False),
-    sa.Column('phone_verified', sa.Integer(), server_default=sa.text('0'), nullable=False),
-    sa.Column('user_status', sa.Integer(), nullable=False),
+    sa.Column('two_fa_auth', sa.Integer(), server_default=sa.text('0'), nullable=True),
+    sa.Column('email_verified', sa.Integer(), server_default=sa.text('0'), nullable=True),
+    sa.Column('phone_verified', sa.Integer(), server_default=sa.text('0'), nullable=True),
+    sa.Column('user_status', sa.Integer(), nullable=True),
     sa.Column('special_notes', sa.String(), nullable=True),
-    sa.Column('role_id', sa.Integer(), nullable=False),
+    sa.Column('role_id', sa.Integer(), nullable=True),
     sa.Column('tg_chat_id', sa.String(), nullable=True),
     sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
     sa.ForeignKeyConstraint(['role_id'], ['roles.id'], ),
     sa.PrimaryKeyConstraint('id'),
     sa.UniqueConstraint('user_email'),
-    sa.UniqueConstraint('user_nick'),
     sa.UniqueConstraint('user_phone')
+    )
+    op.create_index(op.f('ix_users_first_name'), 'users', ['first_name'], unique=False)
+    op.create_index(op.f('ix_users_last_name'), 'users', ['last_name'], unique=False)
+    op.create_index(op.f('ix_users_user_nick'), 'users', ['user_nick'], unique=True)
+    op.create_table('messages',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('sender_id', sa.Integer(), nullable=False),
+    sa.Column('recipient_id', sa.Integer(), nullable=False),
+    sa.Column('content', sa.Text(), nullable=False),
+    sa.Column('created_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['recipient_id'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['sender_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
+    )
+    op.create_index(op.f('ix_messages_id'), 'messages', ['id'], unique=False)
+    op.create_table('users_logs',
+    sa.Column('id', sa.Integer(), nullable=False),
+    sa.Column('user_id', sa.Integer(), nullable=False),
+    sa.Column('action_type', sa.String(), nullable=False),
+    sa.Column('old_value', sa.Text(), nullable=True),
+    sa.Column('new_value', sa.Text(), nullable=True),
+    sa.Column('description', sa.Text(), nullable=True),
+    sa.Column('changed_by', sa.Integer(), nullable=False),
+    sa.Column('created_at', sa.DateTime(timezone=True), nullable=False),
+    sa.Column('updated_at', sa.DateTime(), server_default=sa.text('now()'), nullable=False),
+    sa.ForeignKeyConstraint(['changed_by'], ['users.id'], ),
+    sa.ForeignKeyConstraint(['user_id'], ['users.id'], ),
+    sa.PrimaryKeyConstraint('id')
     )
     op.create_table('verificationcodes',
     sa.Column('id', sa.Integer(), nullable=False),
@@ -103,9 +130,13 @@ def downgrade() -> None:
     """Downgrade schema."""
     # ### commands auto generated by Alembic - please adjust! ###
     op.drop_table('verificationcodes')
+    op.drop_table('users_logs')
+    op.drop_index(op.f('ix_messages_id'), table_name='messages')
+    op.drop_table('messages')
+    op.drop_index(op.f('ix_users_user_nick'), table_name='users')
+    op.drop_index(op.f('ix_users_last_name'), table_name='users')
+    op.drop_index(op.f('ix_users_first_name'), table_name='users')
     op.drop_table('users')
-    op.drop_index(op.f('ix_students_last_name'), table_name='students')
-    op.drop_index(op.f('ix_students_first_name'), table_name='students')
     op.drop_table('students')
     op.drop_table('roles')
     op.drop_table('majors')
