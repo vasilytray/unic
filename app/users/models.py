@@ -1,7 +1,7 @@
 
 from sqlalchemy import Integer, ForeignKey, Text, text, event, DateTime
 from sqlalchemy.orm import relationship, Mapped, mapped_column
-from typing import Optional
+from typing import Optional, List
 from app.database import Base, str_uniq, int_pk, str_null_true
 from datetime import date, datetime, timezone
 #from app.roles.models import Role
@@ -48,6 +48,11 @@ class User(Base):
 
     # Определяем отношения: один пользователь имеет одну группу
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="joined")
+
+    # # Связи для сервисов и счетов - добавляем с Optional для обратной совместимости
+    # services: Mapped[Optional[List["Service"]]] = relationship("Service", back_populates="user")
+    # invoices: Mapped[Optional[List["Invoice"]]] = relationship("Invoice", back_populates="user")
+    # transactions: Mapped[Optional[List["Transaction"]]] = relationship("Transaction", back_populates="user")
 
     logs: Mapped[list["UserLog"]] = relationship("UserLog", foreign_keys=[UserLog.user_id], back_populates="user")
     changes_made: Mapped[list["UserLog"]] = relationship("UserLog", foreign_keys=[UserLog.changed_by], back_populates="changer")

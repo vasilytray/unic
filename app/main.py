@@ -4,6 +4,9 @@ from app.majors.router import router as router_majors
 from app.users.router import router as router_users
 from app.roles.router import router as router_roles
 from app.pages.router import router as router_pages
+from app.services.router import router as router_services
+from app.monitoring.router import router as router_monitoring
+from app.billing.router import router as router_billing
 # from app.chat.router import router as chat_router
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
@@ -12,7 +15,11 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.exceptions import TokenExpiredException, TokenNoFoundException
 
 
-app = FastAPI()
+app = FastAPI(
+    title="DokuHost",
+    description="Панель управления VPS, Docker-контейнерами, ботами и n8n инстансами",
+    version="1.0.0"
+)
 
 app.mount('/static', StaticFiles(directory='app/static'), 'static')
 
@@ -38,6 +45,9 @@ app.include_router(router_majors)
 app.include_router(router_users) # подключить (включить) роутер
 app.include_router(router_roles)
 app.include_router(router_pages)
+app.include_router(router_services)
+app.include_router(router_monitoring)
+app.include_router(router_billing)
 # app.include_router(chat_router)
 
 # Обработчик для TokenExpired
