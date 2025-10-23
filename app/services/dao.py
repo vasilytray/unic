@@ -1,7 +1,8 @@
 # app/services/dao.py
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import List, Dict, Any
+from sqlalchemy.orm import joinedload
+from typing import List, Dict, Any, Optional
 
 from app.database import async_session_maker
 from app.services.models import Service, ServiceStatus
@@ -11,13 +12,14 @@ class ServicesDAO:
 
     @classmethod
     async def get_user_services(cls, user_id: int) -> List[Service]:
-        """Получить все сервисы пользователя"""
+        """Получить все сервисы пользователя с загрузкой пользователя"""
         async with async_session_maker() as session:
             query = (select(cls.model)
+                    .options(joinedload(cls.model.user))
                     .filter_by(user_id=user_id)
                     .order_by(cls.model.created_at.desc()))
             result = await session.execute(query)
-            return result.scalars().all()
+            return result.unique().scalars().all()
 
     @classmethod
     async def get_user_service_stats(cls, user_id: int) -> Dict[str, Any]:
@@ -43,10 +45,11 @@ class ServicesDAO:
             }
 
     @classmethod
-    async def get_active_services_count(cls, user_id: int) -> int:
-        """Получить количество активных сервисов"""
+    async def get_service_with_user(cls, service_id: int) -> Optional[Service]:
+        """Получить сервис с информацией о пользователе"""
         async with async_session_maker() as session:
-            query = (select(func.count(cls.model.id))
-                    .filter_by(user_id=user_id, status=ServiceStatus.ACTIVE))
+            query = (select(cls.model)
+                    .options(joinedload(cls.model.user))
+                    .filter_by(id=service_id))
             result = await session.execute(query)
-            return result.scalar()
+            return result.unique().scalar_one_or_none()

@@ -1,35 +1,85 @@
+# app/main.py
+from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
-from app.students.router import router as router_students
-from app.majors.router import router as router_majors
-from app.users.router import router as router_users
-from app.roles.router import router as router_roles
-from app.pages.router import router as router_pages
-from app.services.router import router as router_services
-from app.monitoring.router import router as router_monitoring
-from app.billing.router import router as router_billing
-# from app.chat.router import router as chat_router
 from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+
+# Импортируем все необходимое
+from app.database import engine, async_session_maker
+from app.models.relationships import configure_relationships
+
+
+# # Импортируем ВСЕ модели
+from app.users.models import User, UserLog
+from app.roles.models import Role
+from app.services.models import Service, BillingPlan
+from app.billing.models import Invoice, Transaction
+
+# Импортируем роутеры
+from app.students.router import router as router_students
+from app.majors.router import router as router_majors
+
+from app.users.router import router as router_users
+from app.roles.router import router as router_roles
+from app.pages.router import router as router_pages
+from app.lk.router import router as router_lk
+from app.services.router import router as router_services
+from app.monitoring.router import router as router_monitoring
+from app.billing.router import router as router_billing
+# from app.chat.router import router as chat_router
+
 from app.exceptions import TokenExpiredException, TokenNoFoundException
 
+async def startup():
+    """Код, выполняемый при запуске приложения"""
+    print("🚀 Запуск приложения Хостинг Провайдер...")
+    
+    # Настраиваем отношения между моделями
+    configure_relationships()
+    
+    # Проверяем подключение к базе данных
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(lambda sync_conn: print("✅ Подключение к базе данных установлено"))
+    except Exception as e:
+        print(f"❌ Ошибка подключения к базе данных: {e}")
+        raise
+    
+    # Проверяем зарегистрированные таблицы
+    from app.database import Base
+    tables = Base.metadata.tables
+    print(f"✅ Зарегистрировано таблиц: {len(tables)}")
+    
+    print("✅ Приложение успешно запущено")
+
+async def shutdown():
+    """Код, выполняемый при остановке приложения"""
+    print("🛑 Остановка приложения Хостинг Провайдер...")
+    
+    # Закрываем соединения с базой данных
+    await engine.dispose()
+    print("✅ Соединения с базой данных закрыты")
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup
+    await startup()
+    
+    yield  # Приложение работает
+    
+    # Shutdown
+    await shutdown()
 
 app = FastAPI(
     title="DokuHost",
     description="Панель управления VPS, Docker-контейнерами, ботами и n8n инстансами",
-    version="1.0.0"
+    version="1.0.0",
+    lifespan=lifespan
 )
 
 app.mount('/static', StaticFiles(directory='app/static'), 'static')
-
-@app.get("/") # эндпоинт главной страницы
-def home_page():
-    return {"message": "Привет, Все!"}
-
-@app.get("/auth")
-async def redirect_to_auth():
-    return RedirectResponse(url="/users/")
 
 app.add_middleware(
     CORSMiddleware,
@@ -40,14 +90,31 @@ app.add_middleware(
 )
 
 
-app.include_router(router_students) # подключить (включить) роутер
-app.include_router(router_majors)
-app.include_router(router_users) # подключить (включить) роутер
-app.include_router(router_roles)
-app.include_router(router_pages)
+
+# @app.get("/") # эндпоинт главной страницы
+# def home_page():
+#     """API эндпоинт для получения информации о приложении"""
+#     return {
+#         "message": "Хостинг Провайдер API", 
+#         "docs": "/docs",
+#         "version": "1.0.0"
+#     }
+
+# @app.get("/auth")
+# async def redirect_to_auth():
+#     return RedirectResponse(url="/users/")
+
+
+
+# Подключаем роутеры
+app.include_router(router_pages)  # Должен быть первым, т.к. содержит эндпоинт /
+app.include_router(router_lk)
+app.include_router(router_users)
 app.include_router(router_services)
-app.include_router(router_monitoring)
 app.include_router(router_billing)
+app.include_router(router_students)
+app.include_router(router_majors)
+app.include_router(router_roles)
 # app.include_router(chat_router)
 
 # Обработчик для TokenExpired
@@ -61,3 +128,21 @@ async def token_expired_exception_handler(request: Request, exc: HTTPException):
 async def token_no_found_exception_handler(request: Request, exc: HTTPException):
     # Возвращаем редирект на страницу /auth
     return RedirectResponse(url="/auth")
+
+@app.get("/api")
+async def api_root():
+    """API эндпоинт для корневого пути"""
+    return {
+        "message": "Хостинг Провайдер API", 
+        "docs": "/docs",
+        "version": "1.0.0"
+    }
+
+# Health check эндпоинт
+@app.get("/health")
+async def health_check():
+    """Проверка здоровья приложения"""
+    return {
+        "status": "healthy",
+        "message": "Хостинг Провайдер работает корректно"
+    }

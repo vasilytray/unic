@@ -3,7 +3,7 @@ from typing import Optional, List
 import re
 import random
 from fastapi.requests import Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
 from app.exceptions import UserAlreadyExistsException, IncorrectEmailOrPasswordException, PasswordMismatchException
 from app.users.dao import UsersDAO, UserLogsDAO
@@ -24,11 +24,11 @@ templates = Jinja2Templates(directory='app/templates')
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
 
-@router.get("/list_users", response_model=List[SUserRead])
-async def get_users():
-    users_all = await UsersDAO.find_all()
-    # Используем генераторное выражение для создания списка
-    return [{'id': user.id, 'name': user.name} for user in users_all]
+# @router.get("/list_users", response_model=List[SUserRead])
+# async def get_users():
+#     users_all = await UsersDAO.find_all()
+#     # Используем генераторное выражение для создания списка
+#     return [{'id': user.id, 'name': user.name} for user in users_all]
 
 @router.get("/", response_class=HTMLResponse, summary="Страница авторизации")
 async def get_categories(request: Request):
@@ -157,16 +157,72 @@ def _create_base_nick(first_name: str, last_name: str) -> str:
     
     return base_nick
 
+# @router.post("/login/")
+# async def auth_user(response: Response, user_data: SUserAuth):
+#     check = await authenticate_user(user_email=user_data.user_email, user_pass=user_data.user_pass)
+#     if check is None:
+#         # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
+#         #                     detail='Неверно указаны почта или пароль')
+#          raise IncorrectEmailOrPasswordException
+#     access_token = create_access_token({"sub": str(check.id)})
+#     # response.set_cookie(key="users_access_token", value=access_token, httponly=True)
+#     response.set_cookie(
+#         key="users_access_token", 
+#         value=access_token, 
+#         httponly=True,
+#         max_age=30*24*60*60,  # 30 дней
+#         path="/"
+#     )
+#     # return {'ok': True, 'access_token': access_token, 'refresh_token': None, 'message': f'Авторизация успешна!'}
+#     # Возвращаем JSON ответ вместо редиректа
+#     # return {
+#     #     "ok": True, 
+#     #     "access_token": access_token, 
+#     #     "refresh_token": None, 
+#     #     "message": "Авторизация успешна!",
+#     #     "redirect_url": "/lk/plist"  # Добавляем URL для редиректа на клиенте
+#     # }
+#     # Возвращаем JSONResponse с явным указанием Content-Type
+#     return JSONResponse(
+#         content={
+#             "ok": True, 
+#             "message": "Авторизация успешна!",
+#             "redirect_url": "/lk/plist",
+#             "user_id": check.id
+#         },
+#         status_code=200
+#     )
+
 @router.post("/login/")
 async def auth_user(response: Response, user_data: SUserAuth):
+    # print(f"🔐 Попытка авторизации для: {user_data.user_email}")
+    
     check = await authenticate_user(user_email=user_data.user_email, user_pass=user_data.user_pass)
     if check is None:
-        # raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
-        #                     detail='Неверно указаны почта или пароль')
-         raise IncorrectEmailOrPasswordException
+        # print("❌ Авторизация не удалась - неверные credentials")
+        raise IncorrectEmailOrPasswordException
+    
+    # print(f"✅ Пользователь авторизован: {check.id} - {check.first_name} {check.last_name}")
+    
     access_token = create_access_token({"sub": str(check.id)})
-    response.set_cookie(key="users_access_token", value=access_token, httponly=True)
-    return {'ok': True, 'access_token': access_token, 'refresh_token': None, 'message': f'Авторизация успешна!'}
+    response.set_cookie(
+        key="users_access_token", 
+        value=access_token, 
+        httponly=True,
+        max_age=30*24*60*60,
+        path="/"
+    )
+    
+    result = {
+        "ok": True,  # Добавляем явно поле ok
+        "message": "Авторизация успешна!",
+        "redirect_url": "/lk/plist",
+        "user_id": check.id,
+        "user_name": f"{check.first_name} {check.last_name}"
+    }
+    
+    # print(f"📤 Возвращаем JSON: {result}")
+    return result
 
 @router.get("/me/")
 async def get_me(user_data: User = Depends(get_current_user)):

@@ -1,3 +1,32 @@
+// /static/js/script.js
+
+// Система логирования
+const DEBUG_LEVEL = 0; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
+
+function logError(...args) {
+    if (DEBUG_LEVEL >= 1) {
+        console.error('❌', ...args);
+    }
+}
+
+function logWarning(...args) {
+    if (DEBUG_LEVEL >= 2) {
+        console.warn('⚠️', ...args);
+    }
+}
+
+function logInfo(...args) {
+    if (DEBUG_LEVEL >= 3) {
+        console.log('ℹ️', ...args);
+    }
+}
+
+function logSuccess(...args) {
+    if (DEBUG_LEVEL >= 2) {
+        console.log('✅', ...args);
+    }
+}
+
 // Обработка кликов по вкладкам
 document.querySelectorAll('.tab').forEach(tab => {
     tab.addEventListener('click', () => showTab(tab.dataset.tab));
@@ -12,51 +41,146 @@ function showTab(tabName) {
     document.getElementById(`${tabName}-form`).classList.add('active');
 }
 
+// Инициализация обработчиков событий после загрузки DOM
+document.addEventListener('DOMContentLoaded', function() {
+    logInfo('Инициализация обработчиков форм...');
+    
+    // Обработчики для форм
+    const loginForm = document.getElementById('login-form');
+    const registerForm = document.getElementById('registration-form');
+    
+    if (loginForm) {
+        logInfo('Найдена форма логина');
+        loginForm.addEventListener('submit', loginFunction);
+    } else {
+        logError('Форма логина не найдена');
+    }
+    
+    if (registerForm) {
+        logInfo('Найдена форма регистрации');
+        registerForm.addEventListener('submit', regFunction);
+    } else {
+        logError('Форма регистрации не найдена');
+    }
+    
+    logInfo('Все формы инициализированы');
+});
 
 async function regFunction(event) {
-    event.preventDefault();  // Предотвращаем стандартное действие формы
+    logInfo('Обработка регистрации...');
+    event.preventDefault();
 
-    // Получаем форму и собираем данные из неё
-    const form = document.getElementById('registration-form');
+    const form = event.target;
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
 
+    logInfo('Данные регистрации:', data);
+
     // Клиентская проверка совпадения паролей
     if (data.user_pass !== data.user_pass_check) {
-        alert('Пароли не совпадают!');
+        showNotification('Пароли не совпадают!', 'error');
         return;
     }
 
     try {
+        logInfo('Отправка запроса регистрации...');
         const response = await fetch('/users/register/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(data)
+            body: JSON.stringify(data),
+            credentials: 'include'
         });
 
-        // Проверяем успешность ответа
+        logInfo('Ответ регистрации:', response.status);
+
         if (!response.ok) {
-            // Получаем данные об ошибке
             const errorData = await response.json();
-            displayErrors(errorData);  // Отображаем ошибки
-            return;  // Прерываем выполнение функции
+            logError('Ошибка регистрации:', errorData);
+            displayErrors(errorData);
+            return;
         }
 
         const result = await response.json();
+        logSuccess('Успешная регистрация:', result);
 
-        if (result.message) {  // Проверяем наличие сообщения о успешной регистрации
-            window.location.href = '/users/';  // Перенаправляем пользователя на страницу логина
+        if (result.message) {
+            showNotification(result.message, 'success');
+            setTimeout(() => {
+                showTab('login');
+            }, 2000);
         } else {
-            alert(result.message || 'Неизвестная ошибка');
+            showNotification(result.message || 'Неизвестная ошибка', 'error');
         }
     } catch (error) {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка при регистрации. Пожалуйста, попробуйте снова.');
+        logError('Ошибка сети при регистрации:', error);
+        showNotification('Произошла ошибка при регистрации. Пожалуйста, попробуйте снова.', 'error');
     }
 }
 
+async function loginFunction(event) {
+    logInfo('Обработка авторизации...');
+    event.preventDefault();
+
+    const form = event.target;
+    const formData = new FormData(form);
+    const data = Object.fromEntries(formData.entries());
+
+    logInfo('Данные авторизации:', { user_email: data.user_email });
+
+    try {
+        logInfo('Отправка запроса авторизации...');
+        const response = await fetch('/users/login/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(data),
+            credentials: 'include'
+        });
+
+        logInfo('Ответ авторизации:', response.status, response.statusText);
+
+        // Получаем текст ответа для отладки
+        const responseText = await response.text();
+        logInfo('Текст ответа:', responseText);
+
+        // Пытаемся распарсить JSON
+        let result;
+        try {
+            result = JSON.parse(responseText);
+        } catch (parseError) {
+            logError('Ошибка парсинга JSON:', parseError);
+            showNotification('Неверный формат ответа от сервера', 'error');
+            return;
+        }
+
+        if (!response.ok) {
+            logError('Ошибка авторизации:', result);
+            displayErrors(result);
+            return;
+        }
+
+        logSuccess('Успешная авторизация:', result);
+
+        // Проверяем успешность разными способами
+        if (result.ok === true || result.message || result.user_id) {
+            showNotification(result.message || 'Авторизация успешна!', 'success');
+            logSuccess('Выполняем редирект на:', result.redirect_url || '/lk/plist');
+            
+            setTimeout(() => {
+                window.location.href = result.redirect_url || '/lk/plist';
+            }, 1000);
+        } else {
+            logWarning('Непонятный ответ от сервера:', result);
+            showNotification(result.message || 'Неизвестная ошибка', 'error');
+        }
+    } catch (error) {
+        logError('Ошибка сети при авторизации:', error);
+        showNotification('Произошла ошибка при входе. Пожалуйста, попробуйте снова.', 'error');
+    }
+}
 
 // Функция для отображения ошибок
 function displayErrors(errorData) {
@@ -64,7 +188,6 @@ function displayErrors(errorData) {
 
     if (errorData && errorData.detail) {
         if (Array.isArray(errorData.detail)) {
-            // Обработка массива ошибок
             message = errorData.detail.map(error => {
                 if (error.type === 'string_too_short') {
                     return `Поле "${error.loc[1]}" должно содержать минимум ${error.ctx.min_length} символов.`;
@@ -72,73 +195,118 @@ function displayErrors(errorData) {
                 return error.msg || 'Произошла ошибка';
             }).join('\n');
         } else {
-            // Обработка одиночной ошибки
             message = errorData.detail || 'Произошла ошибка';
         }
     }
 
-    // Отображение сообщения об ошибке
-    alert(message);
+    showNotification(message, 'error');
 }
 
-async function loginFunction(event) {
-    event.preventDefault();  // Предотвращаем стандартное действие формы
+// Функция показа уведомлений
+function showNotification(message, type) {
+    // Удаляем существующие уведомления
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(notification => notification.remove());
 
-    // Получаем форму и собираем данные из неё
-    const form = document.getElementById('login-form');
-    const formData = new FormData(form);
-    const data = Object.fromEntries(formData.entries());
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        z-index: 1000;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Удаляем уведомление через 4 секунды
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 4000);
+}
 
+// Функции для других страниц
+async function logoutUser() {
     try {
-        const response = await fetch('/users/login/', {
+        const response = await fetch('/users/logout/', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify(data)
+            credentials: 'include'
         });
 
-        // Проверяем успешность ответа
-        if (!response.ok) {
-            // Получаем данные об ошибке
-            const errorData = await response.json();
-            displayErrors(errorData);  // Отображаем ошибки
-            return;  // Прерываем выполнение функции
-        }
-
-        const result = await response.json();
-
-        if (result.message) {  // Проверяем наличие сообщения о успешной регистрации
-            window.location.href = '/lk/profile';  // Перенаправляем пользователя на страницу логина
+        if (response.ok) {
+            showNotification('Выход выполнен успешно', 'success');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
         } else {
-            alert(result.message || 'Неизвестная ошибка');
+            const errorData = await response.json();
+            logError('Ошибка при выходе:', errorData);
+            showNotification('Ошибка при выходе', 'error');
         }
     } catch (error) {
-        console.error('Ошибка:', error);
-        alert('Произошла ошибка при входе. Пожалуйста, попробуйте снова.');
+        logError('Ошибка сети', error);
+        showNotification('Ошибка сети', 'error');
     }
 }
 
-async function logoutFunction() {
+// Управление сервисами (для личного кабинета)
+async function manageService(action, serviceId) {
     try {
-        // Отправка POST-запроса для удаления куки на сервере
-        let response = await fetch('/users/logout/', {
+        logInfo(`Управление сервисом: ${action} для ID: ${serviceId}`);
+        const response = await fetch(`/services/${serviceId}/${action}`, { 
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json'
-            }
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
         });
 
-        // Проверка ответа сервера
         if (response.ok) {
-            // Перенаправляем пользователя на страницу логина
-            window.location.href = '/users/';
+            showNotification(`Сервис успешно ${getActionText(action)}`, 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
         } else {
-            // Чтение возможного сообщения об ошибке от сервера
             const errorData = await response.json();
-            console.error('Ошибка при выходе:', errorData.message || response.statusText);
+            logError('Ошибка управления сервисом:', errorData);
+            showNotification(errorData.detail || 'Ошибка при выполнении действия', 'error');
         }
     } catch (error) {
-        console.error('Ошибка сети', error);
+        logError('Error:', error);
+        showNotification('Ошибка сети', 'error');
     }
 }
+
+function getActionText(action) {
+    const actions = {
+        'start': 'запущен',
+        'stop': 'остановлен', 
+        'restart': 'перезапущен'
+    };
+    return actions[action] || 'обновлен';
+}
+
+// Инициализация обработчиков для личного кабинета
+document.addEventListener('DOMContentLoaded', function() {
+    // Обработчики для кнопок управления сервисами
+    document.querySelectorAll('.service-actions button[data-action]').forEach(button => {
+        button.addEventListener('click', function() {
+            const action = this.getAttribute('data-action');
+            const serviceId = this.getAttribute('data-service-id');
+            manageService(action, serviceId);
+        });
+    });
+});
