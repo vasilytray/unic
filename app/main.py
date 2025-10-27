@@ -25,6 +25,7 @@ from app.users.router import router as router_users
 from app.roles.router import router as router_roles
 from app.pages.router import router as router_pages
 from app.lk.router import router as router_lk
+from app.partials.router import router as partials_router
 from app.services.router import router as router_services
 from app.monitoring.router import router as router_monitoring
 from app.billing.router import router as router_billing
@@ -108,6 +109,9 @@ app.add_middleware(
 
 # Подключаем роутеры
 app.include_router(router_pages)  # Должен быть первым, т.к. содержит эндпоинт /
+app.include_router(partials_router)   # Добавляем роутер частичных страниц
+# app.include_router(auth.router, prefix="/auth", tags=["Authentication"])
+# app.include_router(lk.router, prefix="/lk", tags=["Personal Cabinet"])
 app.include_router(router_lk)
 app.include_router(router_users)
 app.include_router(router_services)

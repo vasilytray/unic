@@ -35,14 +35,17 @@ async def services_dashboard(
         total_invoices_count = 0
         service_stats = {"by_type": {}, "by_status": {}}
     
-    return templates.TemplateResponse("servicesdb.html", {
+    # return templates.TemplateResponse("servicesdb.html", {
+    return templates.TemplateResponse("dashboard.html", {
         "request": request,
-        "user": current_user,
+        "current_user": current_user,
+        "user_authenticated": True,
         "services": user_services,
         "total_services": len(user_services),
         "pending_invoices_count": pending_invoices_count,
         "total_invoices_count": total_invoices_count,
-        "service_stats": service_stats
+        "service_stats": service_stats,
+        "active_tab": "dashboard"  # Для подсветки активного пункта меню
     })
 
 @router.get("/services", response_class=HTMLResponse)

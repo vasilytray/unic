@@ -134,3 +134,11 @@ async def add_student_photo(file: UploadFile, image_name: int):
     with open(f"app/static/images/{image_name}.webp", "wb+") as photo_obj:
         shutil.copyfileobj(file.file, photo_obj)
 
+# временный эндпоинт для диагностики
+@router.get('/debug/partials')
+async def debug_partials(request: Request, current_user: User = Depends(get_current_user)):
+    """Страница для тестирования partials"""
+    return templates.TemplateResponse("debug_partials.html", {
+        "request": request,
+        "current_user": current_user
+    })

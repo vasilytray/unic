@@ -1,7 +1,7 @@
 // /static/js/script.js
 
 // Система логирования
-const DEBUG_LEVEL = 0; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
+const DEBUG_LEVEL = 3; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
 
 function logError(...args) {
     if (DEBUG_LEVEL >= 1) {
@@ -27,25 +27,42 @@ function logSuccess(...args) {
     }
 }
 
-// Обработка кликов по вкладкам
-document.querySelectorAll('.tab').forEach(tab => {
-    tab.addEventListener('click', () => showTab(tab.dataset.tab));
-});
-
-// Функция отображения выбранной вкладки
-function showTab(tabName) {
-    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
-    document.querySelectorAll('.form').forEach(form => form.classList.remove('active'));
-
-    document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}-form`).classList.add('active');
-}
-
-// Инициализация обработчиков событий после загрузки DOM
+// Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', function() {
-    logInfo('Инициализация обработчиков форм...');
+    logInfo('Загрузка приложения...');
+
+    // Проверяем существование необходимых элементов
+    const requiredElements = [
+        'dynamic-content',
+        'modules-container', 
+        'contentTitle',
+        'breadcrumb'
+    ];
     
-    // Обработчики для форм
+    requiredElements.forEach(id => {
+        const element = document.getElementById(id);
+        if (element) {
+            logSuccess(`✅ Элемент #${id} найден`);
+        } else {
+            logError(`❌ Элемент #${id} НЕ НАЙДЕН!`);
+        }
+    });
+
+    initializeEventHandlers();
+    
+    // Создаем и тестируем ContentManager
+    window.contentManager = new ContentManager();
+    logInfo('ContentManager создан:', window.contentManager);
+    
+    // Тестируем переключение на профиль
+    const profileLink = document.querySelector('[data-content="profile"]');
+    if (profileLink) {
+        logInfo('Ссылка на профиль найдена:', profileLink);
+    } else {
+        logError('Ссылка на профиль НЕ НАЙДЕНА!');
+    }
+
+    // Инициализация форм авторизации (если они есть на странице)
     const loginForm = document.getElementById('login-form');
     const registerForm = document.getElementById('registration-form');
     
@@ -63,9 +80,605 @@ document.addEventListener('DOMContentLoaded', function() {
         logError('Форма регистрации не найдена');
     }
     
-    logInfo('Все формы инициализированы');
+    logSuccess('Приложение полностью инициализировано');
 });
 
+// Обработка кликов по вкладкам
+document.querySelectorAll('.tab').forEach(tab => {
+    tab.addEventListener('click', () => showTab(tab.dataset.tab));
+});
+
+// Функция отображения выбранной вкладка
+function showTab(tabName) {
+    document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+    document.querySelectorAll('.form').forEach(form => form.classList.remove('active'));
+
+    document.querySelector(`.tab[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`${tabName}-form`).classList.add('active');
+}
+
+// Основные функции приложения
+async function logoutUser() {
+    try {
+        logInfo('Выполнение выхода...');
+        const response = await fetch('/users/logout/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            showNotification('Выход выполнен успешно', 'success');
+            setTimeout(() => {
+                window.location.href = '/';
+            }, 1000);
+        } else {
+            const errorData = await response.json();
+            logError('Ошибка при выходе:', errorData);
+            showNotification('Ошибка при выходе', 'error');
+        }
+    } catch (error) {
+        logError('Ошибка сети', error);
+        showNotification('Ошибка сети', 'error');
+    }
+}
+
+async function topUpBalance() {
+    logInfo('Перенаправление на страницу пополнения баланса...');
+    window.location.href = '/billing/topup';
+}
+
+function createNewProject() {
+    logInfo('Создание нового проекта...');
+    window.location.href = '/projects/create';
+}
+
+function showContent(contentType) {
+    logInfo('Показать контент:', contentType);
+    // В будущем можно загружать контент через AJAX
+}
+
+function navigateToService(type) {
+    logInfo(`Навигация к созданию сервиса: ${type}`);
+    window.location.href = `/services/${type}`;
+}
+
+// Управление сервисами
+async function manageService(action, serviceId) {
+    try {
+        logInfo(`Управление сервисом: ${action} для ID: ${serviceId}`);
+        const response = await fetch(`/services/${serviceId}/${action}`, { 
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            credentials: 'include'
+        });
+
+        if (response.ok) {
+            showNotification(`Сервис успешно ${getActionText(action)}`, 'success');
+            setTimeout(() => {
+                window.location.reload();
+            }, 2000);
+        } else {
+            const errorData = await response.json();
+            logError('Ошибка управления сервисом:', errorData);
+            showNotification(errorData.detail || 'Ошибка при выполнении действия', 'error');
+        }
+    } catch (error) {
+        logError('Error:', error);
+        showNotification('Ошибка сети', 'error');
+    }
+}
+
+function getActionText(action) {
+    const actions = {
+        'start': 'запущен',
+        'stop': 'остановлен', 
+        'restart': 'перезапущен',
+        'start-service': 'запущен',
+        'stop-service': 'остановлен'
+    };
+    return actions[action] || 'обновлен';
+}
+
+// Функция показа уведомлений
+function showNotification(message, type) {
+    // Удаляем существующие уведомления
+    const existingNotifications = document.querySelectorAll('.notification');
+    existingNotifications.forEach(notification => notification.remove());
+
+    // Создаем элемент уведомления
+    const notification = document.createElement('div');
+    notification.className = `notification ${type}`;
+    notification.textContent = message;
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        padding: 15px 20px;
+        border-radius: 8px;
+        color: white;
+        z-index: 1000;
+        font-weight: bold;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
+    `;
+    
+    document.body.appendChild(notification);
+    
+    // Удаляем уведомление через 4 секунды
+    setTimeout(() => {
+        if (notification.parentNode) {
+            notification.remove();
+        }
+    }, 4000);
+}
+
+// Система динамических модулей с TTL-кэшированием
+class ContentManager {
+    constructor() {
+        this.currentModule = 'dashboard';
+        this.modules = new Map();
+        this.moduleCache = new Map(); // { html: string, timestamp: number }
+        this.initializeModules();
+    }
+
+    initializeModules() {
+        // Регистрируем модули
+        this.modules.set('dashboard', {
+            title: 'Панель управления',
+            breadcrumb: ['Главная', 'Панель управления'],
+            type: 'internal'
+        });
+        
+        this.modules.set('all-services', {
+            title: 'Все сервисы',
+            breadcrumb: ['Главная', 'Сервисы', 'Все сервисы'],
+            type: 'partial',
+            url: '/partials/services/all'
+        });
+        
+        this.modules.set('vps-services', {
+            title: 'VPS сервисы',
+            breadcrumb: ['Главная', 'Сервисы', 'VPS'],
+            type: 'partial',
+            url: '/partials/services/vps'
+        });
+
+        this.modules.set('docker-services', {
+            title: 'Docker сервисы', 
+            breadcrumb: ['Главная', 'Сервисы', 'Docker'],
+            type: 'partial',
+            url: '/partials/services/docker'
+        });
+        
+        this.modules.set('n8n-services', {
+            title: 'n8n сервисы',
+            breadcrumb: ['Главная', 'Сервисы', 'n8n'],
+            type: 'partial',
+            url: '/partials/services/n8n'
+        });
+        
+        this.modules.set('invoices', {
+            title: 'Счета и платежи',
+            breadcrumb: ['Главная', 'Финансы', 'Счета и платежи'],
+            type: 'partial',
+            url: '/partials/invoices'
+        });
+        
+        this.modules.set('billing-history', {
+            title: 'История операций',
+            breadcrumb: ['Главная', 'Финансы', 'История операций'],
+            type: 'partial',
+            url: '/partials/billing/history'
+        });
+        
+        this.modules.set('projects', {
+            title: 'Мои проекты',
+            breadcrumb: ['Главная', 'Проекты', 'Мои проекты'],
+            type: 'partial',
+            url: '/partials/projects'
+        });
+
+        this.modules.set('profile', {
+            title: 'Профиль пользователя',
+            breadcrumb: ['Главная', 'Профиль'],
+            type: 'partial',
+            url: '/partials/profile'
+        });
+    }
+
+    async showModule(moduleId) {
+        logInfo(`🔄 Показ модуля: ${moduleId}`);
+        
+        // Всегда обновляем UI и навигацию
+        this.updateUI(moduleId);
+        this.updateActiveNav(moduleId);
+        
+        try {
+            const module = this.modules.get(moduleId);
+            if (!module) {
+                throw new Error(`Модуль ${moduleId} не найден`);
+            }
+            
+            if (moduleId === 'dashboard') {
+                await this.showDashboard();
+            } else if (module.type === 'partial') {
+                // Для критичных модулей всегда свежие данные
+                if (this.shouldForceReload(moduleId)) {
+                    this.moduleCache.delete(moduleId);
+                }
+                
+                await this.loadPartialPage(moduleId, module.url);
+            }
+            
+            this.currentModule = moduleId;
+            logSuccess(`✅ Модуль ${moduleId} успешно показан`);
+            
+        } catch (error) {
+            logError(`❌ Ошибка загрузки модуля ${moduleId}:`, error);
+            this.showError(moduleId, error);
+        }
+    }
+
+    shouldForceReload(moduleId) {
+        // Всегда свежие данные для этих модулей
+        const forceReloadModules = ['profile', 'invoices', 'billing-history'];
+        return forceReloadModules.includes(moduleId);
+    }
+
+    isCacheValid(moduleId) {
+        const cache = this.moduleCache.get(moduleId);
+        if (!cache) return false;
+        
+        const cacheAge = Date.now() - cache.timestamp;
+        const ttl = this.getModuleTTL(moduleId);
+        
+        return cacheAge < ttl;
+    }
+
+    getModuleTTL(moduleId) {
+        // Время жизни кэша для разных модулей (в миллисекундах)
+        const ttlConfig = {
+            'profile': 30000,        // 30 секунд
+            'invoices': 60000,       // 1 минута
+            'billing-history': 60000, // 1 минута
+            'all-services': 45000,   // 45 секунд
+            'vps-services': 45000,
+            'docker-services': 45000,
+            'n8n-services': 45000,
+            'projects': 60000,
+            'default': 30000         // 30 секунд по умолчанию
+        };
+        
+        return ttlConfig[moduleId] || ttlConfig.default;
+    }
+
+    async loadPartialPage(moduleId, url) {
+        // Проверяем валидность кэша
+        if (this.isCacheValid(moduleId)) {
+            logInfo(`📤 Используем кэш для модуля: ${moduleId}`);
+            this.showCachedModule(moduleId);
+            return;
+        }
+
+        logInfo(`📥 Загрузка частичной страницы: ${url}`);
+        this.showLoading(moduleId);
+        
+        try {
+            const response = await fetch(url, {
+                credentials: 'include',
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest',
+                    'Accept': 'text/html'
+                }
+            });
+            
+            logInfo(`Статус ответа: ${response.status} ${response.statusText}`);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            
+            const html = await response.text();
+            logInfo(`Получен HTML длиной: ${html.length} символов`);
+            
+            // Сохраняем в кэш
+            this.moduleCache.set(moduleId, {
+                html: html,
+                timestamp: Date.now()
+            });
+            
+            this.renderPartial(moduleId, html);
+            logSuccess(`✅ Модуль ${moduleId} загружен и закэширован`);
+            
+        } catch (error) {
+            logError(`❌ Ошибка загрузки частичной страницы:`, error);
+            
+            // Пытаемся показать устаревший кэш при ошибке
+            const cache = this.moduleCache.get(moduleId);
+            if (cache) {
+                logWarning(`⚠️ Показываем устаревший кэш из-за ошибки: ${moduleId}`);
+                this.showCachedModule(moduleId);
+            } else {
+                throw new Error(`Не удалось загрузить частичную страницу: ${error.message}`);
+            }
+        }
+    }
+
+    showCachedModule(moduleId) {
+        const cache = this.moduleCache.get(moduleId);
+        if (cache) {
+            const cacheAge = Date.now() - cache.timestamp;
+            logInfo(`📤 Показ кэшированного модуля: ${moduleId} (возраст: ${Math.round(cacheAge/1000)}сек)`);
+            this.renderPartial(moduleId, cache.html);
+        } else {
+            throw new Error(`Кэш для модуля ${moduleId} не найден`);
+        }
+    }
+
+    renderPartial(moduleId, html) {
+        this.hideCurrentModule();
+        
+        const modulesContainer = document.getElementById('modules-container');
+        if (modulesContainer) {
+            modulesContainer.innerHTML = html;
+            
+            // Инициализируем обработчики событий для загруженного контента
+            this.initializePartialEventHandlers(modulesContainer);
+        }
+    }
+
+    initializePartialEventHandlers(container) {
+        // Обработчики для кнопок внутри частичных страниц
+        const actionButtons = container.querySelectorAll('[data-action]');
+        actionButtons.forEach(button => {
+            // Удаляем старые обработчики и добавляем новые
+            button.replaceWith(button.cloneNode(true));
+        });
+
+        // Добавляем новые обработчики
+        const newActionButtons = container.querySelectorAll('[data-action]');
+        newActionButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const action = this.dataset.action;
+                handleAction(action, this);
+            });
+        });
+        
+        logInfo(`✅ Обработчики событий инициализированы (${newActionButtons.length} кнопок)`);
+    }
+
+    hideCurrentModule() {
+        // Скрываем дашборд
+        const dashboard = document.getElementById('dashboard-content');
+        if (dashboard) {
+            dashboard.style.display = 'none';
+        }
+        
+        // Очищаем контейнер модулей
+        const modulesContainer = document.getElementById('modules-container');
+        if (modulesContainer) {
+            modulesContainer.innerHTML = '';
+        }
+    }
+
+    showLoading(moduleId) {
+        this.hideCurrentModule();
+        
+        const modulesContainer = document.getElementById('modules-container');
+        if (modulesContainer) {
+            modulesContainer.innerHTML = `
+                <div class="module-loading">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Загрузка ${this.modules.get(moduleId)?.title || moduleId}...</p>
+                </div>
+            `;
+        }
+    }
+
+    async showDashboard() {
+        logInfo('🔄 Показ дашборда');
+        
+        this.hideCurrentModule();
+        
+        // Показываем дашборд
+        const dashboard = document.getElementById('dashboard-content');
+        if (dashboard) {
+            dashboard.style.display = 'block';
+        }
+    }
+
+    updateUI(moduleId) {
+        const module = this.modules.get(moduleId);
+        if (module) {
+            // Обновляем заголовок
+            const titleElement = document.getElementById('contentTitle');
+            if (titleElement) {
+                titleElement.textContent = module.title;
+            }
+            
+            // Обновляем хлебные крошки
+            const breadcrumbElement = document.getElementById('breadcrumb');
+            if (breadcrumbElement) {
+                breadcrumbElement.innerHTML = module.breadcrumb
+                    .map((item, index) => 
+                        index === module.breadcrumb.length - 1 
+                            ? `<span class="active">${item}</span>`
+                            : `<span>${item}</span>`
+                    )
+                    .join(' / ');
+            }
+        }
+    }
+
+    updateActiveNav(moduleId) {
+        // Убираем активный класс со всех пунктов
+        document.querySelectorAll('.nav-link').forEach(link => {
+            link.classList.remove('active');
+        });
+        
+        // Добавляем активный класс к выбранному пункту
+        const activeLink = document.querySelector(`[data-content="${moduleId}"]`);
+        if (activeLink) {
+            activeLink.classList.add('active');
+        }
+    }
+
+    showError(moduleId, error) {
+        const modulesContainer = document.getElementById('modules-container');
+        if (modulesContainer) {
+            modulesContainer.innerHTML = `
+                <div class="module-error">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Ошибка загрузки</h3>
+                    <p>Не удалось загрузить модуль "${moduleId}"</p>
+                    <p><small>${error.message}</small></p>
+                    <button class="btn-retry" onclick="contentManager.reloadModule('${moduleId}')">
+                        <i class="fas fa-redo"></i>
+                        Повторить попытку
+                    </button>
+                </div>
+            `;
+        }
+    }
+
+    // Метод для принудительной перезагрузки модуля
+    async reloadModule(moduleId) {
+        logInfo(`🔄 Принудительная перезагрузка модуля: ${moduleId}`);
+        this.moduleCache.delete(moduleId);
+        await this.showModule(moduleId);
+    }
+}
+
+// Фоновое обновление профиля каждые 2 минуты
+setInterval(() => {
+    contentManager.moduleCache.delete('profile');
+}, 1200);
+
+// Создаем экземпляр менеджера контента
+const contentManager = new ContentManager();
+
+// Инициализация обработчиков событий
+function initializeEventHandlers() {
+    logInfo('Инициализация обработчиков событий...');
+    
+    // Обработчики для навигации по модулям
+    const contentLinks = document.querySelectorAll('[data-content]');
+    contentLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            const moduleId = this.dataset.content;
+            contentManager.showModule(moduleId);
+            
+            // Закрываем сайдбар на мобильных
+            if (window.innerWidth <= 1024) {
+                document.getElementById('sidebar').classList.remove('active');
+            }
+        });
+    });
+    
+    // Обработчики для мобильного меню
+    const mobileMenuItems = document.querySelectorAll('.mobile-menu-item[data-content]');
+    mobileMenuItems.forEach(item => {
+        item.addEventListener('click', function(e) {
+            e.preventDefault();
+            const moduleId = this.dataset.content;
+            contentManager.showModule(moduleId);
+            document.getElementById('sidebar').classList.remove('active');
+        });
+    });
+    
+    // Обработчики для кнопок действий
+    const actionButtons = document.querySelectorAll('[data-action]');
+    actionButtons.forEach(button => {
+        button.addEventListener('click', function(e) {
+            e.preventDefault();
+            const action = this.dataset.action;
+            handleAction(action, this);
+        });
+    });
+    
+    // Обработчик бургер меню
+    const burgerMenu = document.getElementById('burgerMenu');
+    const sidebar = document.getElementById('sidebar');
+    
+    if (burgerMenu && sidebar) {
+        burgerMenu.addEventListener('click', function() {
+            sidebar.classList.toggle('active');
+        });
+    }
+    
+    // Закрытие сайдбара при клике вне его на мобильных
+    document.addEventListener('click', function(e) {
+        if (window.innerWidth <= 1024 && sidebar && sidebar.classList.contains('active')) {
+            if (!sidebar.contains(e.target) && !burgerMenu.contains(e.target)) {
+                sidebar.classList.remove('active');
+            }
+        }
+    });
+    
+    // Обработчик выпадающего меню пользователя
+    const userToggle = document.querySelector('.user-toggle');
+    const dropdownMenu = document.querySelector('.dropdown-menu');
+    
+    if (userToggle && dropdownMenu) {
+        userToggle.addEventListener('click', function(e) {
+            e.stopPropagation();
+            dropdownMenu.classList.toggle('show');
+        });
+        
+        // Закрытие меню при клике вне его
+        document.addEventListener('click', function() {
+            dropdownMenu.classList.remove('show');
+        });
+    }
+}
+
+// Обработчик действий
+function handleAction(action, element) {
+    logInfo(`Обработка действия: ${action}`);
+    
+    switch(action) {
+        case 'topup':
+            topUpBalance();
+            break;
+        case 'logout':
+            logoutUser();
+            break;
+        case 'create-project':
+            createNewProject();
+            break;
+        case 'create-vps':
+            navigateToService('vps');
+            break;
+        case 'create-docker':
+            navigateToService('docker');
+            break;
+        case 'create-n8n':
+            navigateToService('n8n');
+            break;
+        case 'support':
+            window.location.href = '/ticket';
+            break;
+        case 'start-service':
+        case 'stop-service':
+            const serviceId = element.dataset.serviceId;
+            if (serviceId) {
+                const apiAction = action.replace('-service', '');
+                manageService(apiAction, serviceId);
+            }
+            break;
+        default:
+            logWarning(`Неизвестное действие: ${action}`);
+    }
+}
+
+// Функции авторизации
 async function regFunction(event) {
     logInfo('Обработка регистрации...');
     event.preventDefault();
@@ -202,111 +815,25 @@ function displayErrors(errorData) {
     showNotification(message, 'error');
 }
 
-// Функция показа уведомлений
-function showNotification(message, type) {
-    // Удаляем существующие уведомления
-    const existingNotifications = document.querySelectorAll('.notification');
-    existingNotifications.forEach(notification => notification.remove());
-
-    // Создаем элемент уведомления
-    const notification = document.createElement('div');
-    notification.className = `notification ${type}`;
-    notification.textContent = message;
-    notification.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        padding: 15px 20px;
-        border-radius: 8px;
-        color: white;
-        z-index: 1000;
-        font-weight: bold;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        ${type === 'success' ? 'background: #28a745;' : 'background: #dc3545;'}
-    `;
+// Глобальные методы для отладки
+window.debugContentManager = {
+    showState: function() {
+        console.log('=== ContentManager State ===');
+        console.log('Current module:', window.contentManager.currentModule);
+        console.log('Cached modules:', Array.from(window.contentManager.moduleCache.keys()));
+        
+        Array.from(window.contentManager.moduleCache.entries()).forEach(([moduleId, cache]) => {
+            const age = Math.round((Date.now() - cache.timestamp) / 1000);
+            console.log(`- ${moduleId}: ${age}сек назад`);
+        });
+    },
     
-    document.body.appendChild(notification);
+    reloadProfile: function() {
+        window.contentManager.reloadModule('profile');
+    },
     
-    // Удаляем уведомление через 4 секунды
-    setTimeout(() => {
-        if (notification.parentNode) {
-            notification.remove();
-        }
-    }, 4000);
-}
-
-// Функции для других страниц
-async function logoutUser() {
-    try {
-        const response = await fetch('/users/logout/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            showNotification('Выход выполнен успешно', 'success');
-            setTimeout(() => {
-                window.location.href = '/';
-            }, 1000);
-        } else {
-            const errorData = await response.json();
-            logError('Ошибка при выходе:', errorData);
-            showNotification('Ошибка при выходе', 'error');
-        }
-    } catch (error) {
-        logError('Ошибка сети', error);
-        showNotification('Ошибка сети', 'error');
+    clearCache: function() {
+        window.contentManager.moduleCache.clear();
+        console.log('✅ Кэш очищен');
     }
-}
-
-// Управление сервисами (для личного кабинета)
-async function manageService(action, serviceId) {
-    try {
-        logInfo(`Управление сервисом: ${action} для ID: ${serviceId}`);
-        const response = await fetch(`/services/${serviceId}/${action}`, { 
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            credentials: 'include'
-        });
-
-        if (response.ok) {
-            showNotification(`Сервис успешно ${getActionText(action)}`, 'success');
-            setTimeout(() => {
-                window.location.reload();
-            }, 2000);
-        } else {
-            const errorData = await response.json();
-            logError('Ошибка управления сервисом:', errorData);
-            showNotification(errorData.detail || 'Ошибка при выполнении действия', 'error');
-        }
-    } catch (error) {
-        logError('Error:', error);
-        showNotification('Ошибка сети', 'error');
-    }
-}
-
-function getActionText(action) {
-    const actions = {
-        'start': 'запущен',
-        'stop': 'остановлен', 
-        'restart': 'перезапущен'
-    };
-    return actions[action] || 'обновлен';
-}
-
-// Инициализация обработчиков для личного кабинета
-document.addEventListener('DOMContentLoaded', function() {
-    // Обработчики для кнопок управления сервисами
-    document.querySelectorAll('.service-actions button[data-action]').forEach(button => {
-        button.addEventListener('click', function() {
-            const action = this.getAttribute('data-action');
-            const serviceId = this.getAttribute('data-service-id');
-            manageService(action, serviceId);
-        });
-    });
-});
+};
