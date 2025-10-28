@@ -49,7 +49,13 @@ async def get_profile_partial(
     try:
         response = templates.TemplateResponse("partials/profile.html", {
             "request": request,
-            "current_user": current_user
+            "current_user": current_user,
+            # Передаем дату регистрации в ISO формате
+            "registration_date": current_user.created_at.isoformat() if current_user.created_at else None,
+            # "last_login": current_user.last_login.isoformat() if current_user.last_login else None,
+            # Или в формате timestamp
+            "registration_timestamp": int(current_user.created_at.timestamp()) if current_user.created_at else None,
+            # "last_login_timestamp": int(current_user.last_login.timestamp()) if current_user.last_login else None
         })
         print("✅ Частичный профиль успешно сгенерирован")
         return response

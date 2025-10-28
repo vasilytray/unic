@@ -5,6 +5,27 @@ from app.users.models import User, UserLog
 from app.roles.models import Role
 from app.database import async_session_maker
 from datetime import datetime, timezone, timedelta
+import logging
+
+#  Система логирования
+DEBUG_LEVEL = 1 # 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
+logger = logging.getLogger(__name__)
+
+if (DEBUG_LEVEL >= 1):
+    def log_info(message: str):
+        logger.info(message)
+    
+    def log_error(message: str):
+        logger.error(message)
+    
+    def log_success(message: str):
+        logger.info(f"✅ {message}")
+
+
+# Настройка логирования
+
+
+
 
 class UsersDAO(BaseDAO):
     model = User
@@ -154,6 +175,33 @@ class UsersDAO(BaseDAO):
             query = select(cls.model).options(joinedload(cls.model.role)).filter_by(user_email=user_email)
             result = await session.execute(query)
             return result.unique().scalar_one_or_none()
+        
+    @classmethod
+    async def update_last_login(cls, user_id: int):
+        """Обновить время последнего входа пользователя"""
+        async with async_session_maker() as session:
+            try:
+                # Находим пользователя
+                query = select(cls.model).filter_by(id=user_id)
+                result = await session.execute(query)
+                user = result.scalar_one_or_none()
+
+                if not user:
+                    log_error(f"Пользователь с ID {user_id} не найден")
+                    return False
+
+                # Обновляем last_login
+                user.last_login = datetime.now(timezone.utc)
+                session.add(user)
+                await session.commit()
+
+                log_success(f"Обновлен last_login для пользователя {user_id}: {user.last_login}")
+                return True
+
+            except Exception as e:
+                log_error(f"Ошибка при обновлении last_login для пользователя {user_id}: {e}")
+                await session.rollback()
+                return False
         
 class UserLogsDAO(BaseDAO):
     model = UserLog

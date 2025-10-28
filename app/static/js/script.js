@@ -1,7 +1,7 @@
 // /static/js/script.js
 
 // Система логирования
-const DEBUG_LEVEL = 3; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
+const DEBUG_LEVEL = 0; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
 
 function logError(...args) {
     if (DEBUG_LEVEL >= 1) {
@@ -24,6 +24,89 @@ function logInfo(...args) {
 function logSuccess(...args) {
     if (DEBUG_LEVEL >= 2) {
         console.log('✅', ...args);
+    }
+}
+
+// Функции для работы с датами
+function calculateDaysWithUs(registrationDate) {
+    try {
+        let regDate;
+        
+        // Проверяем разные форматы даты
+        if (!registrationDate || registrationDate === 'None' || registrationDate === '') {
+            return 0;
+        }
+        
+        // Если это timestamp (число)
+        if (!isNaN(registrationDate)) {
+            regDate = new Date(parseInt(registrationDate) * 1000);
+        } 
+        // Если это ISO строка
+        else {
+            regDate = new Date(registrationDate);
+        }
+        
+        // Проверяем валидность даты
+        if (isNaN(regDate.getTime())) {
+            logError('Невалидная дата регистрации:', registrationDate);
+            return 0;
+        }
+        
+        const now = new Date();
+        const diffTime = now.getTime() - regDate.getTime();
+        const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
+        
+        return Math.max(0, diffDays);
+        
+    } catch (error) {
+        logError('Ошибка расчета дней пользователя:', error, 'Дата:', registrationDate);
+        return 0;
+    }
+}
+
+function formatLastLogin(lastLoginDate) {
+    if (!lastLoginDate || lastLoginDate === 'None' || lastLoginDate === '') {
+        return 'Никогда';
+    }
+    
+    try {
+        let loginDate;
+        
+        // Обрабатываем разные форматы даты
+        if (!isNaN(lastLoginDate)) {
+            loginDate = new Date(parseInt(lastLoginDate) * 1000);
+        } else {
+            loginDate = new Date(lastLoginDate);
+        }
+        
+        if (isNaN(loginDate.getTime())) {
+            return 'Неизвестно';
+        }
+        
+        const now = new Date();
+        const diffMs = now.getTime() - loginDate.getTime();
+        const diffMins = Math.floor(diffMs / (1000 * 60));
+        const diffHours = Math.floor(diffMs / (1000 * 60 * 60));
+        const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        
+        if (diffMins < 1) return 'Только что';
+        if (diffMins < 60) return `${diffMins} мин назад`;
+        if (diffHours < 24) return `${diffHours} ч назад`;
+        if (diffDays === 1) return 'Вчера';
+        if (diffDays < 7) return `${diffDays} дн назад`;
+        
+        // Для давних входов показываем полную дату
+        return loginDate.toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        
+    } catch (error) {
+        logError('Ошибка форматирования даты входа:', error, 'Дата:', lastLoginDate);
+        return 'Неизвестно';
     }
 }
 
@@ -386,13 +469,19 @@ class ContentManager {
             const html = await response.text();
             logInfo(`Получен HTML длиной: ${html.length} символов`);
             
+            // Обрабатываем специальные данные для профиля
+            let processedHtml = html;
+            if (moduleId === 'profile') {
+                processedHtml = this.processProfileData(html);
+            }
+            
             // Сохраняем в кэш
             this.moduleCache.set(moduleId, {
-                html: html,
+                html: processedHtml,
                 timestamp: Date.now()
             });
             
-            this.renderPartial(moduleId, html);
+            this.renderPartial(moduleId, processedHtml);
             logSuccess(`✅ Модуль ${moduleId} загружен и закэширован`);
             
         } catch (error) {
@@ -406,6 +495,58 @@ class ContentManager {
             } else {
                 throw new Error(`Не удалось загрузить частичную страницу: ${error.message}`);
             }
+        }
+    }
+
+    processProfileData(html) {
+        try {
+            const tempDiv = document.createElement('div');
+            tempDiv.innerHTML = html;
+            
+            // Отладочная информация
+            const registrationElement = tempDiv.querySelector('[data-registration-date]');
+            const lastLoginElement = tempDiv.querySelector('[data-last-login]');
+            
+            logInfo('Найден элемент регистрации:', registrationElement);
+            logInfo('Найден элемент последнего входа:', lastLoginElement);
+            
+            if (registrationElement) {
+                const regDate = registrationElement.dataset.registrationDate;
+                logInfo('Дата регистрации из data-атрибута:', regDate);
+                
+                const daysWithUs = calculateDaysWithUs(regDate);
+                const daysElement = tempDiv.querySelector('#days-with-us');
+                if (daysElement) {
+                    daysElement.textContent = daysWithUs + ' дней';
+                    logSuccess('Установлено дней с нами:', daysWithUs);
+                }
+            }
+            
+            if (lastLoginElement) {
+            const loginDate = lastLoginElement.dataset.lastLogin;
+            logInfo('⏰ Дата последнего входа из data-атрибута:', loginDate);
+            
+            // Проверяем, что дата не пустая
+            if (loginDate && loginDate !== '') {
+                const formattedLogin = formatLastLogin(loginDate);
+                const loginElement = tempDiv.querySelector('#last-login-time');
+                if (loginElement) {
+                    loginElement.textContent = formattedLogin;
+                    logSuccess('✅ Установлено время входа:', formattedLogin);
+                }
+            } else {
+                logWarning('⚠️ Дата последнего входа пустая или отсутствует');
+                const loginElement = tempDiv.querySelector('#last-login-time');
+                if (loginElement) {
+                    loginElement.textContent = 'Никогда';
+                }
+            }
+        }
+            
+            return tempDiv.innerHTML;
+        } catch (error) {
+            logError('Ошибка обработки данных профиля:', error);
+            return html;
         }
     }
 
@@ -558,7 +699,7 @@ class ContentManager {
 // Фоновое обновление профиля каждые 2 минуты
 setInterval(() => {
     contentManager.moduleCache.delete('profile');
-}, 1200);
+}, 120000);
 
 // Создаем экземпляр менеджера контента
 const contentManager = new ContentManager();
@@ -835,5 +976,30 @@ window.debugContentManager = {
     clearCache: function() {
         window.contentManager.moduleCache.clear();
         console.log('✅ Кэш очищен');
+    },
+    
+    // Новые методы для работы с датами
+    testDateCalculation: function(registrationDate, lastLoginDate) {
+        console.log('=== Тест расчета дат ===');
+        console.log('Дата регистрации:', registrationDate);
+        console.log('Дней с нами:', calculateDaysWithUs(registrationDate));
+        console.log('Последний вход:', lastLoginDate);
+        console.log('Форматированный вход:', formatLastLogin(lastLoginDate));
+    },
+    
+    // Метод для тестирования текущего профиля
+    testCurrentProfile: function() {
+        const daysElement = document.querySelector('#days-with-us');
+        const loginElement = document.querySelector('#last-login-time');
+        
+        if (daysElement) {
+            console.log('Элемент дней с нами:', daysElement);
+            console.log('Data атрибут:', daysElement.dataset.registrationDate);
+        }
+        
+        if (loginElement) {
+            console.log('Элемент последнего входа:', loginElement);
+            console.log('Data атрибут:', loginElement.dataset.lastLogin);
+        }
     }
 };

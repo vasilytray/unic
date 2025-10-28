@@ -36,6 +36,18 @@
                         <span id="profile-last-name">{{ current_user.last_name or 'Не указано' }}</span>
                     </div>
                     <div class="info-item">
+                        <label>Ваш телефон:</label>
+                        <span id="profile-created-at">{{ current_user.user_phone or 'Не указано' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Ваш ник:</label>
+                        <span id="profile-created-at">{{ current_user.user_nick or 'Не указано' }}</span>
+                    </div>
+                    <div class="info-item">
+                        <label>Ваша роль:</label>
+                        <span id="profile-created-at">{{ current_user.role.role_name if current_user.role else 'Не назначена' }}</span>
+                    </div>
+                    <div class="info-item">
                         <label>Дата регистрации:</label>
                         <span id="profile-created-at">{{ current_user.created_at.strftime('%d.%m.%Y') }}</span>
                     </div>
@@ -77,9 +89,13 @@
                     <div class="stat-icon success">
                         <i class="fas fa-check-circle"></i>
                     </div>
-                    <div class="stat-info">
-                        <h4 id="profile-days-active">1</h4>
-                        <p>Дней с нами</p>
+                    <div class="profile-info-item">
+                        <h4 id="days-with-us" 
+                              data-registration-date="{{ current_user.created_at.isoformat() if current_user.created_at else '' }}">
+                            <!-- JavaScript заполнит это автоматически -->
+                            загрузка...
+                        </h4>
+                        <span class="label">Дней с нами</span>
                     </div>
                 </div>
                 <div class="stat-card mini">
@@ -87,8 +103,18 @@
                         <i class="fas fa-clock"></i>
                     </div>
                     <div class="stat-info">
-                        <h4 id="profile-last-login">Сегодня</h4>
-                        <p>Последний вход</p>
+                        <div class="profile-info-item">
+                            <span id="last-login-time" 
+                      data-last-login="{{ current_user.last_login.isoformat() if current_user.last_login else '' }}">
+                    {% if current_user.last_login %}
+                        {{ current_user.last_login.strftime('%d.%m.%Y %H:%M') }}
+                    {% else %}
+                        Никогда
+                    {% endif %}
+                </span>
+                            <span class="label">Последний вход</span>
+                        </div>
+                        
                     </div>
                 </div>
             </div>

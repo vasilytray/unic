@@ -46,6 +46,13 @@ class User(Base):
     role_id: Mapped[int] = mapped_column(Integer, ForeignKey("roles.id"), nullable=True, default=4)
     tg_chat_id: Mapped[Optional[str]] = mapped_column(nullable=True)
 
+    # ДОБАВЛЯЕМ ТОЛЬКО last_login, так как created_at и updated_at уже есть в Base
+    last_login: Mapped[Optional[datetime]] = mapped_column(
+        DateTime(timezone=True), 
+        nullable=True
+    )
+
+
     # Определяем отношения: один пользователь имеет одну группу
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="joined")
 
@@ -81,7 +88,11 @@ class User(Base):
             # "verification_codes": self.verification_codes,
             "special_notes": self.special_notes,
             "role_id": self.role_id,
-            "tg_chat_id": self.tg_chat_id
+            "tg_chat_id": self.tg_chat_id,
+            # created_at и updated_at уже доступны из Base класса
+            "created_at": self.created_at,
+            "last_login": self.last_login,
+            "updated_at": self.updated_at
         }
 
     @property

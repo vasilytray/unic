@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Response
 from typing import Optional, List
 import re
 import random
+import logging
 from fastapi.requests import Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from app.users.auth import get_password_hash, authenticate_user, create_access_token
@@ -23,6 +24,17 @@ templates = Jinja2Templates(directory='app/templates')
 # router = APIRouter(prefix='/auth', tags=['Auth'])
 
 router = APIRouter(prefix='/users', tags=['Работа с пользователями'])
+# Настройка логирования
+logger = logging.getLogger(__name__)
+
+def log_info(message: str):
+    logger.info(message)
+
+def log_error(message: str):
+    logger.error(message)
+
+def log_success(message: str):
+    logger.info(f"✅ {message}")
 
 # @router.get("/list_users", response_model=List[SUserRead])
 # async def get_users():
@@ -71,7 +83,7 @@ async def register_user(user_data: SUserRegister) -> dict:
 
 async def generate_unique_nick(first_name: str, last_name: str) -> str:
     """Генерирует уникальный никнейм"""
-    from app.users.dao import UsersDAO
+   
     
     base_nick = _create_base_nick(first_name, last_name)
     unique_nick = base_nick
@@ -195,14 +207,16 @@ def _create_base_nick(first_name: str, last_name: str) -> str:
 
 @router.post("/login/")
 async def auth_user(response: Response, user_data: SUserAuth):
-    # print(f"🔐 Попытка авторизации для: {user_data.user_email}")
-    
     check = await authenticate_user(user_email=user_data.user_email, user_pass=user_data.user_pass)
     if check is None:
-        # print("❌ Авторизация не удалась - неверные credentials")
         raise IncorrectEmailOrPasswordException
     
-    # print(f"✅ Пользователь авторизован: {check.id} - {check.first_name} {check.last_name}")
+    # ОБНОВЛЯЕМ ВРЕМЯ ПОСЛЕДНЕГО ВХОДА
+    success = await UsersDAO.update_last_login(check.id)
+    if not success:
+        log_error(f"Не удалось обновить last_login для пользователя {check.id}")
+    else:
+        log_success(f"Обновлен last_login для пользователя {check.id}")
     
     access_token = create_access_token({"sub": str(check.id)})
     response.set_cookie(
@@ -214,14 +228,13 @@ async def auth_user(response: Response, user_data: SUserAuth):
     )
     
     result = {
-        "ok": True,  # Добавляем явно поле ok
+        "ok": True,
         "message": "Авторизация успешна!",
         "redirect_url": "/lk/plist",
         "user_id": check.id,
         "user_name": f"{check.first_name} {check.last_name}"
     }
     
-    # print(f"📤 Возвращаем JSON: {result}")
     return result
 
 @router.get("/me/")

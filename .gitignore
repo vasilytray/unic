@@ -16,7 +16,11 @@ __pycache__/
 **/.ideas/
 *2*.*
 *_old*.*
+migration/
+**/migration/
 
+versions/
+**/versions/
 
 Scripts/
 **/Scripts/
