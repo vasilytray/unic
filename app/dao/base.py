@@ -1,7 +1,10 @@
+# app.dao.base.py
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.future import select
 from sqlalchemy import update as sqlalchemy_update, delete as sqlalchemy_delete, func
 from app.database import async_session_maker
+from app.utils.datetime_utils import DateTimeUtils
+from datetime import datetime
 
 
 class BaseDAO:
@@ -59,6 +62,7 @@ class BaseDAO:
     async def add(cls, **values):
         """
         Асинхронно создает новый экземпляр модели с указанными значениями.
+        Автоматически обрабатывает datetime поля.
 
         Аргументы:
             **values: Именованные параметры для создания нового экземпляра модели.
@@ -68,7 +72,10 @@ class BaseDAO:
         """
         async with async_session_maker() as session:
             async with session.begin():
-                new_instance = cls.model(**values)
+                # Обрабатываем datetime поля
+                processed_values = cls._process_datetime_values(values)
+                
+                new_instance = cls.model(**processed_values)
                 session.add(new_instance)
                 try:
                     await session.commit()
@@ -91,14 +98,19 @@ class BaseDAO:
         """
         async with async_session_maker() as session:
             async with session.begin():
-                new_instances = [cls.model(**values) for values in instances]
-                session.add_all(new_instances)
+                # Обрабатываем datetime поля для каждого экземпляра
+                processed_instances = [
+                    cls.model(**cls._process_datetime_values(instance_data))
+                    for instance_data in instances
+                ]
+                
+                session.add_all(processed_instances)
                 try:
                     await session.commit()
                 except SQLAlchemyError as e:
                     await session.rollback()
                     raise e
-                return new_instances
+                return processed_instances
 
     @classmethod
     async def update(cls, filter_by, **values):
@@ -155,3 +167,15 @@ class BaseDAO:
                     await session.rollback()
                     raise e
                 return result.rowcount
+            
+    @classmethod
+    def _process_datetime_values(cls, values: dict) -> dict:
+        """
+        Обрабатывает datetime значения для корректной работы с PostgreSQL.
+        Преобразует aware datetime в naive UTC.
+        """
+        processed = values.copy()
+        for key, value in processed.items():
+            if isinstance(value, datetime):
+                processed[key] = DateTimeUtils.to_naive_utc(value)
+        return processed

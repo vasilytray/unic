@@ -7,6 +7,8 @@ from app.users.models import User
 from app.exceptions import TokenExpiredException, NoJwtException, NoUserIdException, ForbiddenException, TokenNoFoundException
 from app.users.dao import UsersDAO
 from app.roles.models import Role, RoleTypes
+from app.utils.secutils import SecurityUtils
+from app.users.ip_dao import UserAllowedIPsDAO
 
 
 def get_token(request: Request):
@@ -159,3 +161,37 @@ async def update_role_counters(old_role_id: int, new_role_id: int):
     
     if new_role_id != old_role_id:
         await Role.increment_count(new_role_id)
+
+async def validate_ip_access(request: Request, current_user: User = Depends(get_current_user)):
+    """
+    Проверяет доступ по IP адресу
+    """
+    client_ip = SecurityUtils.get_client_ip(request)
+    
+    # Проверяем ограничения по IP
+    if not await SecurityUtils.is_ip_allowed(current_user.id, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Доступ с IP {client_ip} запрещен"
+        )
+    
+    return current_user
+
+async def get_current_user_with_ip_check(
+    request: Request, 
+    token: str = Depends(get_token)
+):
+    """
+    Основная зависимость с проверкой IP
+    """
+    user = await get_current_user(token)
+    
+    # Проверяем IP
+    client_ip = SecurityUtils.get_client_ip(request)
+    if not await SecurityUtils.is_ip_allowed(user.id, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Доступ с IP {client_ip} запрещен"
+        )
+    
+    return user

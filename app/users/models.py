@@ -11,12 +11,15 @@ class UserLog(Base):
     
     id: Mapped[int_pk]
     user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    action_type: Mapped[str] = mapped_column(nullable=False)  # 'role_change', 'profile_update', etc.
+    action_type: Mapped[str] = mapped_column(nullable=False)
     old_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     new_value: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     description: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     changed_by: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),  # Без временной зоны
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)  # Убираем временную зону
+    )
     
     # Связи
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="logs")
@@ -24,6 +27,33 @@ class UserLog(Base):
 
     def __str__(self):
         return f"{self.__class__.__name__}(id={self.id}, user_id={self.user_id}, action={self.action_type})"
+
+    def __repr__(self):
+        return str(self)
+
+class UserAllowedIP(Base):
+    __tablename__ = "users_allowed_ips"
+    
+    id: Mapped[int_pk]
+    user_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    ip_address: Mapped[str] = mapped_column(nullable=False)
+    description: Mapped[Optional[str]] = mapped_column(nullable=True)
+    is_active: Mapped[int] = mapped_column(default=1, nullable=True, server_default=text('1'))
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),  # Без временной зоны для PostgreSQL
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None)  # Убираем временную зону
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=False),  # Без временной зоны для PostgreSQL
+        default=lambda: datetime.now(timezone.utc).replace(tzinfo=None),  # Убираем временную зону
+        onupdate=lambda: datetime.now(timezone.utc).replace(tzinfo=None)   # Убираем временную зону
+    )
+    
+    # Связи
+    user: Mapped["User"] = relationship("User", back_populates="allowed_ips")
+    
+    def __str__(self):
+        return f"{self.__class__.__name__}(id={self.id}, user_id={self.user_id}, ip={self.ip_address})"
 
     def __repr__(self):
         return str(self)
@@ -48,16 +78,20 @@ class User(Base):
 
     # ДОБАВЛЯЕМ ТОЛЬКО last_login, так как created_at и updated_at уже есть в Base
     last_login: Mapped[Optional[datetime]] = mapped_column(
-        DateTime(timezone=True), 
+        DateTime(timezone=False),  # Без временной зоны
         nullable=True
     )
-
+    
+    # Новые поля для дополнительной безопасности
+    secondary_email: Mapped[Optional[str]] = mapped_column(nullable=True)
+    allowed_ips: Mapped[list["UserAllowedIP"]] = relationship("UserAllowedIP", back_populates="user", cascade="all, delete-orphan")
+    security_settings: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # JSON с настройками безопасности
 
     # Определяем отношения: один пользователь имеет одну группу
     role: Mapped["Role"] = relationship("Role", back_populates="users", lazy="joined")
 
-    # # Связи для сервисов и счетов - добавляем с Optional для обратной совместимости
-    # services: Mapped[Optional[List["Service"]]] = relationship("Service", back_populates="user")
+    # Связи для сервисов и счетов - добавляем с Optional для обратной совместимости
+    services: Mapped[Optional[List["Service"]]] = relationship("Service", back_populates="user")
     # invoices: Mapped[Optional[List["Invoice"]]] = relationship("Invoice", back_populates="user")
     # transactions: Mapped[Optional[List["Transaction"]]] = relationship("Transaction", back_populates="user")
 

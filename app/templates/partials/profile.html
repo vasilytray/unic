@@ -1,282 +1,131 @@
-<!-- app/templates/partials/profile.html -->
-{% extends "partials/base.html" %}
-
-{% block content %}
-<div class="profile-module">
-    <div class="module-header">
-        <!-- <h2>Профиль пользователя</h2> -->
-        <p>Управление вашей учетной записью</p>
-        <small class="cache-indicator" data-module="profile">
-            <i class="fas fa-sync-alt"></i> Обновлено только что
-        </small>
+<div class="profile-container">
+    <div class="profile-header">
+        <h2>Профиль пользователя</h2>
     </div>
 
-    <div class="profile-content">
-        <div class="profile-card">
-            <div class="profile-avatar">
-                <i class="fas fa-user-circle"></i>
-            </div>
-            <div class="profile-info">
-                <h3>Основная информация</h3>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <label>ID пользователя:</label>
-                        <span id="profile-user-id">{{ current_user.id }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Email:</label>
-                        <span id="profile-email">{{ current_user.user_email }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Имя:</label>
-                        <span id="profile-first-name">{{ current_user.first_name or 'Не указано' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Фамилия:</label>
-                        <span id="profile-last-name">{{ current_user.last_name or 'Не указано' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Ваш телефон:</label>
-                        <span id="profile-created-at">{{ current_user.user_phone or 'Не указано' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Ваш ник:</label>
-                        <span id="profile-created-at">{{ current_user.user_nick or 'Не указано' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Ваша роль:</label>
-                        <span id="profile-created-at">{{ current_user.role.role_name if current_user.role else 'Не назначена' }}</span>
-                    </div>
-                    <div class="info-item">
-                        <label>Дата регистрации:</label>
-                        <span id="profile-created-at">{{ current_user.created_at.strftime('%d.%m.%Y') }}</span>
-                    </div>
+    <!-- Раздел быстрых действий -->
+    <div class="quick-actions-section">
+        <h3>Быстрые действия</h3>
+        <div class="quick-actions-grid">
+            <div class="quick-action-card" data-content="edit-basic-profile">
+                <div class="action-icon">
+                    <i class="fas fa-user-edit"></i>
+                </div>
+                <div class="action-content">
+                    <h4>Основные данные</h4>
+                    <p>Изменить имя, фамилию, никнейм и дополнительный email</p>
                 </div>
             </div>
-        </div>
 
-        <div class="profile-actions">
-            <h3>Быстрые действия</h3>
-            <div class="action-buttons">
-                <button class="btn-primary" data-action="edit-profile">
-                    <i class="fas fa-edit"></i>
-                    Редактировать профиль
-                </button>
-                <button class="btn-secondary" data-action="change-password">
+            <div class="quick-action-card" data-content="edit-password">
+                <div class="action-icon">
                     <i class="fas fa-key"></i>
-                    Сменить пароль
-                </button>
-                <button class="btn-secondary" data-action="security-settings">
+                </div>
+                <div class="action-content">
+                    <h4>Сменить пароль</h4>
+                    <p>Обновить пароль для входа в аккаунт</p>
+                </div>
+            </div>
+
+            <div class="quick-action-card" data-content="edit-security">
+                <div class="action-icon">
                     <i class="fas fa-shield-alt"></i>
-                    Настройки безопасности
-                </button>
+                </div>
+                <div class="action-content">
+                    <h4>Безопасность</h4>
+                    <p>Управление IP адресами и настройками доступа</p>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="profile-stats">
-            <h3>Статистика аккаунта</h3>
-            <div class="stats-cards">
-                <div class="stat-card mini">
-                    <div class="stat-icon">
-                        <i class="fas fa-server"></i>
-                    </div>
-                    <div class="stat-info">
-                        <h4 id="profile-total-services">0</h4>
-                        <p>Активных сервисов</p>
-                    </div>
-                </div>
-                <div class="stat-card mini">
-                    <div class="stat-icon success">
-                        <i class="fas fa-check-circle"></i>
-                    </div>
-                    <div class="profile-info-item">
-                        <h4 id="days-with-us" 
-                              data-registration-date="{{ current_user.created_at.isoformat() if current_user.created_at else '' }}">
-                            <!-- JavaScript заполнит это автоматически -->
-                            загрузка...
-                        </h4>
-                        <span class="label">Дней с нами</span>
-                    </div>
-                </div>
-                <div class="stat-card mini">
-                    <div class="stat-icon warning">
-                        <i class="fas fa-clock"></i>
-                    </div>
-                    <div class="stat-info">
-                        <div class="profile-info-item">
-                            <span id="last-login-time" 
-                      data-last-login="{{ current_user.last_login.isoformat() if current_user.last_login else '' }}">
-                    {% if current_user.last_login %}
-                        {{ current_user.last_login.strftime('%d.%m.%Y %H:%M') }}
-                    {% else %}
-                        Никогда
-                    {% endif %}
-                </span>
-                            <span class="label">Последний вход</span>
-                        </div>
-                        
-                    </div>
-                </div>
+    <!-- Основная информация профиля -->
+    <div class="profile-info-section">
+        <h3>Основная информация</h3>
+        <div class="info-grid">
+            <div class="info-item">
+                <label>Имя:</label>
+                <span id="profile-first-name">{{ current_user.first_name }}</span>
             </div>
+            <div class="info-item">
+                <label>Фамилия:</label>
+                <span id="profile-last-name">{{ current_user.last_name }}</span>
+            </div>
+            <div class="info-item">
+                <label>Никнейм:</label>
+                <span id="profile-nick">{{ current_user.user_nick }}</span>
+            </div>
+            <div class="info-item">
+                <label>Email:</label>
+                <span id="profile-email">{{ current_user.user_email }}</span>
+            </div>
+            <div class="info-item">
+                <label>Телефон:</label>
+                <span id="profile-phone">{{ current_user.user_phone }}</span>
+            </div>
+            <div class="info-item">
+                <label>Доп. email:</label>
+                <span id="profile-secondary-email">{{ current_user.secondary_email or 'Не указан' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Роль:</label>
+                <span id="profile-role">{{ current_user.role.role_name if current_user.role else 'Не указана' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Последний вход:</label>
+                <span id="profile-last-login">{{ current_user.last_login.strftime('%d.%m.%Y %H:%M') if current_user.last_login else 'Никогда' }}</span>
+            </div>
+            <div class="info-item">
+                <label>Дата регистрации:</label>
+                <span id="profile-created-at">{{ current_user.created_at.strftime('%d.%m.%Y %H:%M') if current_user.created_at else 'Неизвестно' }}</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Блок IP ограничений -->
+    <div class="ip-restrictions-section">
+        <h3>Безопасность и IP ограничения</h3>
+        <div id="current-ip-info" class="ip-info">
+            <p><strong>Ваш текущий IP:</strong> <span id="current-ip">Определяется...</span></p>
+            <p><strong>Статус доступа:</strong> <span id="ip-access-status">Проверяется...</span></p>
+        </div>
+        <div class="ip-actions">
+            <button class="btn btn-outline" data-content="edit-security">
+                <i class="fas fa-shield-alt"></i> Управление IP доступом
+            </button>
+            <button class="btn btn-outline" data-action="check-ip">
+                <i class="fas fa-sync"></i> Обновить IP информацию
+            </button>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block extra_css %}
-<style>
-.profile-module {
-    max-width: 100%;
-}
+<script>
+// Проверяем IP при загрузке страницы
+document.addEventListener('DOMContentLoaded', function() {
+    checkCurrentIP();
+});
 
-.profile-card {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    display: flex;
-    gap: 30px;
-    align-items: flex-start;
-    margin-bottom: 30px;
+function checkCurrentIP() {
+    fetch('/users/ip-restrictions/check')
+        .then(response => response.json())
+        .then(data => {
+            document.getElementById('current-ip').textContent = data.ip_address;
+            const statusElement = document.getElementById('ip-access-status');
+            if (data.is_allowed) {
+                statusElement.textContent = '✅ Разрешен';
+                statusElement.className = 'text-success';
+            } else {
+                statusElement.textContent = '❌ Заблокирован';
+                statusElement.className = 'text-danger';
+            }
+        })
+        .catch(error => {
+            console.error('Error checking IP:', error);
+            document.getElementById('current-ip').textContent = 'Ошибка';
+            document.getElementById('ip-access-status').textContent = '❌ Ошибка проверки';
+            document.getElementById('ip-access-status').className = 'text-danger';
+        });
 }
+</script>
 
-.profile-avatar {
-    font-size: 80px;
-    color: #3498db;
-}
-
-.profile-info h3 {
-    margin-bottom: 20px;
-    color: #2c3e50;
-}
-
-.info-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-    gap: 15px;
-}
-
-.info-item {
-    display: flex;
-    justify-content: space-between;
-    padding: 10px 0;
-    border-bottom: 1px solid #f8f9fa;
-}
-
-.info-item label {
-    font-weight: 600;
-    color: #495057;
-}
-
-.info-item span {
-    color: #6c757d;
-}
-
-.profile-actions {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-    margin-bottom: 30px;
-}
-
-.profile-actions h3 {
-    margin-bottom: 20px;
-    color: #2c3e50;
-}
-
-.action-buttons {
-    display: flex;
-    gap: 15px;
-    flex-wrap: wrap;
-}
-
-.btn-primary, .btn-secondary {
-    padding: 12px 20px;
-    border: none;
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 14px;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    transition: all 0.3s;
-}
-
-.btn-primary {
-    background: #3498db;
-    color: white;
-}
-
-.btn-primary:hover {
-    background: #2980b9;
-}
-
-.btn-secondary {
-    background: #f8f9fa;
-    color: #495057;
-    border: 1px solid #dee2e6;
-}
-
-.btn-secondary:hover {
-    background: #e9ecef;
-}
-
-.profile-stats {
-    background: white;
-    padding: 25px;
-    border-radius: 12px;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.08);
-}
-
-.profile-stats h3 {
-    margin-bottom: 20px;
-    color: #2c3e50;
-}
-
-.stats-cards {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 20px;
-}
-
-.stat-card.mini {
-    padding: 20px;
-    flex-direction: column;
-    text-align: center;
-    gap: 15px;
-}
-
-.stat-card.mini .stat-icon {
-    width: 50px;
-    height: 50px;
-    font-size: 20px;
-}
-
-.stat-card.mini h4 {
-    font-size: 24px;
-    margin-bottom: 5px;
-}
-
-@media (max-width: 768px) {
-    .profile-card {
-        flex-direction: column;
-        text-align: center;
-    }
-    
-    .action-buttons {
-        flex-direction: column;
-    }
-    
-    .info-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    .info-item {
-        flex-direction: column;
-        text-align: center;
-        gap: 5px;
-    }
-}
-</style>
-{% endblock %}

@@ -44,9 +44,9 @@ class Service(Base):
     environment_vars: Mapped[Dict[str, Any]] = mapped_column(JSON, default=dict)
     docker_command: Mapped[Optional[str]] = mapped_column(nullable=True)
     
-    # Связи
-    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
-    # user: Mapped["User"] = relationship(back_populates="services")
+    # ДОБАВЛЯЕМ СВЯЗЬ С ПОЛЬЗОВАТЕЛЕМ
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"), nullable=False)
+    user: Mapped["User"] = relationship("User", back_populates="services")
     
     # Мониторинг
     last_health_check: Mapped[datetime_null_true]

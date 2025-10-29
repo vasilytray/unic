@@ -5,6 +5,10 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.responses import RedirectResponse
 from fastapi.exceptions import HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from app.logger import app_logger as logger
+from app.tasks.log_cleanup_task import log_cleanup
+from app.tasks.background_tasks import background_tasks
+import asyncio
 
 # Импортируем все необходимое
 from app.database import engine, async_session_maker
@@ -65,13 +69,24 @@ async def shutdown():
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Startup
-    await startup()
+       # Startup
+    logger.info("🚀 Starting FastAPI application...")
     
-    yield  # Приложение работает
+    try:
+        # Запускаем фоновую задачу очистки логов
+        asyncio.create_task(log_cleanup.start_periodic_cleanup())
+        logger.info("✅ Фоновая задача очистки логов запущена")
+        
+    except Exception as e:
+        logger.error(f"❌ Ошибка при запуске фоновых задач: {e}")
+    
+    yield
     
     # Shutdown
-    await shutdown()
+    logger.info("🛑 Shutting down application...")
+    log_cleanup.is_running = False
+    logger.info("✅ Фоновая задача очистки логов остановлена")
+
 
 app = FastAPI(
     title="DokuHost",

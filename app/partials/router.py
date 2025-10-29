@@ -187,3 +187,36 @@ async def get_tutorial_partial(
         "current_user": current_user,
         "tutorial_name": tutorial_name
     })
+
+@router.get("/edit-basic-profile", response_class=HTMLResponse)
+async def get_edit_basic_profile(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Страница редактирования основных данных"""
+    return templates.TemplateResponse(
+        "partials/edit_basic_profile.html",
+        {"request": request, "current_user": current_user}
+    )
+
+@router.get("/edit-password", response_class=HTMLResponse)
+async def get_edit_password(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Страница смены пароля"""
+    return templates.TemplateResponse(
+        "partials/edit_password.html", 
+        {"request": request, "current_user": current_user}
+    )
+
+@router.get("/edit-security", response_class=HTMLResponse)
+async def get_edit_security(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Страница управления безопасностью"""
+    return templates.TemplateResponse(
+        "partials/edit_security.html",
+        {"request": request, "current_user": current_user}
+    )

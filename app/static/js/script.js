@@ -1,7 +1,7 @@
-// /static/js/script.js
+// app/static/js/script.js
 
 // Система логирования
-const DEBUG_LEVEL = 0; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
+const DEBUG_LEVEL = 3; // 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
 
 function logError(...args) {
     if (DEBUG_LEVEL >= 1) {
@@ -109,6 +109,8 @@ function formatLastLogin(lastLoginDate) {
         return 'Неизвестно';
     }
 }
+
+
 
 // Инициализация при загрузке DOM
 document.addEventListener('DOMContentLoaded', function() {
@@ -372,6 +374,27 @@ class ContentManager {
             type: 'partial',
             url: '/partials/profile'
         });
+
+        this.modules.set('edit-basic-profile', {
+            title: 'Редактирование профиля',
+            breadcrumb: ['Главная', 'Профиль', 'Редактирование'],
+            type: 'partial',
+            url: '/partials/edit-basic-profile'
+        });
+
+        this.modules.set('edit-password', {
+            title: 'Смена пароля',
+            breadcrumb: ['Главная', 'Профиль', 'Смена пароля'],
+            type: 'partial', 
+            url: '/partials/edit-password'
+        });
+
+        this.modules.set('edit-security', {
+            title: 'Управление безопасностью',
+            breadcrumb: ['Главная', 'Профиль', 'Безопасность'],
+            type: 'partial',
+            url: '/partials/edit-security'
+        });
     }
 
     async showModule(moduleId) {
@@ -542,6 +565,13 @@ class ContentManager {
                 }
             }
         }
+
+            // Автоматически проверяем IP при загрузке профиля
+            setTimeout(() => {
+                if (typeof checkCurrentIP === 'function') {
+                    checkCurrentIP();
+                }
+            }, 500);
             
             return tempDiv.innerHTML;
         } catch (error) {
@@ -567,7 +597,20 @@ class ContentManager {
         const modulesContainer = document.getElementById('modules-container');
         if (modulesContainer) {
             modulesContainer.innerHTML = html;
-            
+
+            // Автоматически инициализируем модули при загрузке
+            setTimeout(() => {
+                if (moduleId === 'edit-security') {
+                    console.log('🔄 Автоматическая инициализация модуля безопасности');
+                    if (typeof window.initializeSecurityHandlers === 'function') {
+                        window.initializeSecurityHandlers();
+                    }
+                    if (typeof window.loadSecurityData === 'function') {
+                        window.loadSecurityData();
+                    }
+                }
+            }, 100);
+
             // Инициализируем обработчики событий для загруженного контента
             this.initializePartialEventHandlers(modulesContainer);
         }
@@ -581,17 +624,47 @@ class ContentManager {
             button.replaceWith(button.cloneNode(true));
         });
 
-        // Добавляем новые обработчики
+        // Добавляем новые обработчики для action кнопок
         const newActionButtons = container.querySelectorAll('[data-action]');
         newActionButtons.forEach(button => {
             button.addEventListener('click', function(e) {
                 e.preventDefault();
                 const action = this.dataset.action;
-                handleAction(action, this);
+
+                // Используем глобальный handleAction или fallback из profile-edit.js
+                if (typeof window.handleAction !== 'undefined') {
+                    window.handleAction(action, this, e);
+                } else {
+                    console.error('handleAction not found!');
+                }
             });
         });
-        
-        logInfo(`✅ Обработчики событий инициализированы (${newActionButtons.length} кнопок)`);
+
+        // Обработчики для карточек с data-content
+        const contentCards = container.querySelectorAll('.quick-action-card[data-content]');
+        contentCards.forEach(card => {
+            card.addEventListener('click', function(e) {
+                e.preventDefault();
+                const moduleId = this.dataset.content;
+                if (moduleId && window.contentManager) {
+                    window.contentManager.showModule(moduleId);
+                }
+            });
+        });
+
+        // Обработчики для кнопок с data-content
+        const contentButtons = container.querySelectorAll('[data-content]:not(.quick-action-card)');
+        contentButtons.forEach(button => {
+            button.addEventListener('click', function(e) {
+                e.preventDefault();
+                const moduleId = this.dataset.content;
+                if (moduleId && window.contentManager) {
+                    window.contentManager.showModule(moduleId);
+                }
+            });
+        });
+
+        logInfo(`✅ Обработчики событий инициализированы (${newActionButtons.length} кнопок, ${contentCards.length} карточек)`);
     }
 
     hideCurrentModule() {
@@ -738,9 +811,8 @@ function initializeEventHandlers() {
     const actionButtons = document.querySelectorAll('[data-action]');
     actionButtons.forEach(button => {
         button.addEventListener('click', function(e) {
-            e.preventDefault();
             const action = this.dataset.action;
-            handleAction(action, this);
+            handleAction(action, this, e);
         });
     });
     
@@ -781,8 +853,18 @@ function initializeEventHandlers() {
 }
 
 // Обработчик действий
-function handleAction(action, element) {
-    logInfo(`Обработка действия: ${action}`);
+function handleAction(action, element, event = null) {
+    logInfo(`Обработка действия: ${action}`, element);
+    
+    // Предотвращаем стандартное поведение если есть event
+    if (event && event.preventDefault) {
+        event.preventDefault();
+    }
+    
+    // ОТЛАДКА: Проверим доступность функций
+    if (action.startsWith('save-') || action.startsWith('change-') || action.includes('ip')) {
+        console.log(`🔍 Проверка функции для действия ${action}:`, typeof window[action]);
+    }
     
     switch(action) {
         case 'topup':
@@ -814,6 +896,72 @@ function handleAction(action, element) {
                 manageService(apiAction, serviceId);
             }
             break;
+            
+        // ДЕЙСТВИЯ ДЛЯ ПРОФИЛЯ
+        case 'save-basic-profile':
+            if (typeof window.updateBasicProfile === 'function') {
+                console.log('✅ Вызываем updateBasicProfile');
+                window.updateBasicProfile(element);
+            } else {
+                console.error('❌ updateBasicProfile не найдена! Доступные глобальные функции:', 
+                    Object.keys(window).filter(key => typeof window[key] === 'function' && key.includes('Basic')));
+                showNotification('Ошибка: функция обновления профиля не доступна. Перезагрузите страницу.', 'error');
+            }
+            break;
+            
+        case 'change-password':
+            if (typeof window.changePassword === 'function') {
+                window.changePassword(element);
+            } else {
+                console.error('changePassword не найдена');
+                showNotification('Ошибка: функция смены пароля не доступна', 'error');
+            }
+            break;
+            
+        case 'check-ip':
+            if (typeof window.checkCurrentIP === 'function') {
+                window.checkCurrentIP();
+            } else {
+                console.log('checkCurrentIP не найдена, используем локальную');
+                checkCurrentIP();
+            }
+            break;
+            
+        case 'add-current-ip':
+            if (typeof window.addCurrentIP === 'function') {
+                console.log('✅ Вызываем addCurrentIP из profile-edit.js');
+                window.addCurrentIP();
+            } else {
+                console.error('❌ addCurrentIP не найдена в profile-edit.js');
+                showNotification('Ошибка: функция добавления IP не доступна', 'error');
+            }
+            break;
+            
+        case 'open-add-ip-modal':
+            if (typeof window.openAddIPModal === 'function') {
+                window.openAddIPModal();
+            }
+            break;
+            
+        case 'close-add-ip-modal':
+            if (typeof window.closeAddIPModal === 'function') {
+                window.closeAddIPModal();
+            }
+            break;
+            
+        case 'add-new-ip':
+            if (typeof window.addNewIP === 'function') {
+                window.addNewIP(element);
+            }
+            break;
+            
+        case 'remove-ip':
+            const ipAddress = element.dataset.ip;
+            if (typeof window.removeIP === 'function') {
+                window.removeIP(ipAddress);
+            }
+            break;
+            
         default:
             logWarning(`Неизвестное действие: ${action}`);
     }
@@ -956,6 +1104,101 @@ function displayErrors(errorData) {
     showNotification(message, 'error');
 }
 
+// Функции для работы с редактированием профиля
+let activeEditTab = 'basic-tab';
+
+// function checkCurrentIP() {
+//     fetch('/users/ip-restrictions/check')
+//         .then(response => response.json())
+//         .then(data => {
+//             document.getElementById('current-ip').textContent = data.ip_address;
+//             const statusElement = document.getElementById('ip-access-status');
+//             if (data.is_allowed) {
+//                 statusElement.textContent = '✅ Разрешен';
+//                 statusElement.className = 'text-success';
+//             } else {
+//                 statusElement.textContent = '❌ Заблокирован';
+//                 statusElement.className = 'text-danger';
+//             }
+//         })
+//         .catch(error => {
+//             console.error('Error checking IP:', error);
+//             document.getElementById('current-ip').textContent = 'Ошибка';
+//             document.getElementById('ip-access-status').textContent = '❌ Ошибка проверки';
+//             document.getElementById('ip-access-status').className = 'text-danger';
+//         });
+// }
+
+// Функции для работы с IP-адресами
+function checkCurrentIP() {
+    fetch('/users/ip-restrictions/check')
+        .then(response => {
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            return response.json();
+        })
+        .then(data => {
+            const currentIpElement = document.getElementById('current-ip');
+            const securityCurrentIpElement = document.getElementById('security-current-ip');
+            
+            if (currentIpElement) {
+                currentIpElement.textContent = data.ip_address;
+            }
+            if (securityCurrentIpElement) {
+                securityCurrentIpElement.textContent = data.ip_address;
+            }
+            
+            const statusElement = document.getElementById('ip-access-status');
+            if (statusElement) {
+                if (data.is_allowed) {
+                    statusElement.textContent = '✅ Разрешен';
+                    statusElement.className = 'text-success';
+                } else {
+                    statusElement.textContent = '❌ Заблокирован';
+                    statusElement.className = 'text-danger';
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Error checking IP:', error);
+            const currentIpElement = document.getElementById('current-ip');
+            const securityCurrentIpElement = document.getElementById('security-current-ip');
+            
+            if (currentIpElement) currentIpElement.textContent = 'Ошибка';
+            if (securityCurrentIpElement) securityCurrentIpElement.textContent = 'Ошибка';
+            
+            const statusElement = document.getElementById('ip-access-status');
+            if (statusElement) {
+                statusElement.textContent = '❌ Ошибка проверки';
+                statusElement.className = 'text-danger';
+            }
+        });
+}
+
+// // Функции для работы с профилем
+// async function updateBasicProfile(formElement) {
+//     // Перенаправляем на функцию из profile-edit.js
+//     if (typeof window.updateBasicProfile !== 'undefined') {
+//         window.updateBasicProfile(formElement);
+//     } else {
+//         console.error('updateBasicProfile not found in profile-edit.js');
+//         showNotification('Ошибка: функция обновления профиля не найдена', 'error');
+//     }
+// }
+
+// async function changePassword(formElement) {
+//     // Перенаправляем на функцию из profile-edit.js
+//     if (typeof window.changePassword !== 'undefined') {
+//         window.changePassword(formElement);
+//     } else {
+//         console.error('changePassword not found in profile-edit.js');
+//         showNotification('Ошибка: функция смены пароля не найдена', 'error');
+//     }
+// }
+
+
+
 // Глобальные методы для отладки
 window.debugContentManager = {
     showState: function() {
@@ -1001,5 +1244,18 @@ window.debugContentManager = {
             console.log('Элемент последнего входа:', loginElement);
             console.log('Data атрибут:', loginElement.dataset.lastLogin);
         }
+    },
+
+    // Новые методы для профиля
+    testProfileActions: function() {
+        console.log('=== Тест действий профиля ===');
+        console.log('Функция openEditProfile:', typeof openEditProfile);
+        console.log('Функция closeEditProfile:', typeof closeEditProfile);
+        console.log('Функция checkCurrentIP:', typeof checkCurrentIP);
+        console.log('Активная вкладка:', activeEditTab);
+    },
+    
+    openTestModal: function(tab = 'basic-tab') {
+        openEditProfile(tab);
     }
 };
