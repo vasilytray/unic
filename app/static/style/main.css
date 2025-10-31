@@ -198,12 +198,12 @@ body {
 
 .sidebar {
     width: 260px;
-    /* background: white; */
+    background: #f5f7fa;
     /* border-right: 1px solid #e1e5e9; */
     position: sticky;
     top: 76px;
     height: calc(100vh - 76px);
-    overflow-y: auto;
+    /* overflow-y: auto; */
     transition: transform 0.3s ease;
     z-index: 999;
     flex-shrink: 0;
@@ -813,6 +813,10 @@ body {
     
     .sidebar {
         position: fixed;
+        width: 280px;
+        background-color:#f5f7fa;
+        /* background: linear-gradient(135deg, #6e70f8 0%, #764ba2 100%); */
+        overflow-y: auto;
         left: -256px;
         top: 76px;
         height: calc(100vh - 76px);

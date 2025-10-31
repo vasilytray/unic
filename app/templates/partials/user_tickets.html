@@ -1,0 +1,272 @@
+<!-- app/templates/partials/user_tickets.html -->
+<link rel="stylesheet" href="/static/style/ticket.css">
+
+<div class="tickets-container">
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <h3>Центр поддержки Клиентов</h3>
+            </div>
+            <div>
+                <button id="create-new-ticket" data-action="create-ticket">
+                    <i class="fas fa-plus"></i>
+                    Создать новое обращение
+                </button>
+            </div>
+        </div>
+    </div>
+    <div class="two-column-portal">
+        <div class="card">
+            <div class="card-header">
+                <h3>Мои обращения</h3>
+                <button class="btn-primary" data-action="create-ticket">
+                    <i class="fas fa-plus"></i>
+                    Создать новое обращение
+                </button>
+            </div>
+
+            <div class="tickets-filters">
+                <select id="status-filter" data-action="filter-tickets">
+                    <option value="">Все статусы</option>
+                    <option value="Open">Открытые</option>
+                    <option value="In Progress">В работе</option>
+                    <option value="Awaiting User Response">Ожидают ответа</option>
+                    <option value="Closed">Закрытые</option>
+                </select>
+
+                <select id="priority-filter" data-action="filter-tickets">
+                    <option value="">Все приоритеты</option>
+                    <option value="Low">Низкий</option>
+                    <option value="Medium">Средний</option>
+                    <option value="High">Высокий</option>
+                    <option value="Urgent">Срочный</option>
+                </select>
+            </div>
+
+            <div id="tickets-list" class="tickets-list">
+                <!-- Динамически загружаемые тикеты -->
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Загрузка обращений...</p>
+                </div>
+            </div>
+
+            <div id="tickets-pagination" class="pagination">
+                <!-- Пагинация -->
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Модальное окно создания тикета -->
+<div id="create-ticket-modal" class="modal-overlay-ticket" style="display: none;">
+    <div class="modal-content-ticket">
+        <div class="modal-header-ticket">
+            <h3>Создание нового обращения</h3>
+            <button class="modal-close-ticket" data-action="close-create-ticket-modal">&times;</button>
+        </div>
+        <div class="modal-body-ticket">
+            <form id="create-ticket-form" data-no-prevent="true">
+                <div class="form-group-ticket">
+                    <label for="ticket-subject">Тема обращения *</label>
+                    <input type="text" id="ticket-subject" name="subject" required 
+                           placeholder="Кратко опишите проблему">
+                </div>
+                
+                <!-- <div class="form-group-ticket">
+                    <label for="ticket-priority">Приоритет *</label>
+                    <select id="ticket-priority" name="priority" required>
+                        <option value="Low">Низкий</option>
+                        <option value="Medium" selected>Средний</option>
+                        <option value="High">Высокий</option>
+                        <option value="Urgent">Срочный</option>
+                    </select>
+                </div> -->
+                
+                <div class="form-group-ticket">
+                    <label for="ticket-description">Подробное описание *</label>
+                    <textarea id="ticket-description" name="description" required 
+                              placeholder="Опишите проблему подробно..." rows="6"></textarea>
+                </div>
+                
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" data-action="close-create-ticket-modal">
+                        Отмена
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        <i class="fas fa-paper-plane"></i>
+                        Отправить обращение
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+
+<style>
+
+.tickets-container {
+    padding: 20px;
+}
+
+.card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+}
+
+
+.tickets-filters {
+    display: flex;
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.tickets-filters select {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+}
+
+.ticket-item {
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    background: white;
+    transition: box-shadow 0.2s;
+    cursor: pointer;
+}
+
+.ticket-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.ticket-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.ticket-header h4 {
+    margin: 0;
+    color: #333;
+    flex: 1;
+    margin-right: 15px;
+}
+
+.ticket-priority {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: bold;
+    white-space: nowrap;
+}
+
+.priority-low { background: #e8f5e8; color: #2e7d32; }
+.priority-medium { background: #fff3e0; color: #ef6c00; }
+.priority-high { background: #ffebee; color: #c62828; }
+.priority-urgent { background: #fce4ec; color: #ad1457; }
+
+.ticket-description {
+    color: #666;
+    margin-bottom: 10px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    box-orient: vertical;
+}
+
+.ticket-meta {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9em;
+    color: #888;
+    flex-wrap: wrap;
+}
+
+.ticket-status {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.8em;
+    white-space: nowrap;
+}
+
+.status-open { background: #e3f2fd; color: #1976d2; }
+.status-inprogress { background: #fff8e1; color: #ff8f00; }
+.status-awaitinguserresponse { background: #fff3e0; color: #ef6c00; }
+.status-closed { background: #f5f5f5; color: #666; }
+
+.ticket-actions {
+    margin-top: 10px;
+    text-align: right;
+}
+
+.ticket-actions button {
+    cursor: pointer;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.empty-state i {
+    font-size: 48px;
+    margin-bottom: 15px;
+    color: #ccc;
+}
+
+.pagination-controls {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 5px;
+    margin-top: 20px;
+    flex-wrap: wrap;
+}
+
+.pagination-controls button, 
+.pagination-controls span {
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    background: white;
+    border-radius: 4px;
+    cursor: pointer;
+    min-width: 40px;
+    text-align: center;
+}
+
+.pagination-controls .current-page {
+    background: #007bff;
+    color: white;
+    border-color: #007bff;
+}
+
+.pagination-controls button:hover {
+    background: #f8f9fa;
+}
+
+.pagination-controls button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.loading-spinner {
+    text-align: center;
+    padding: 40px;
+    color: #666;
+}
+
+.loading-spinner i {
+    font-size: 24px;
+    margin-bottom: 10px;
+}
+</style>

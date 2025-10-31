@@ -29,6 +29,8 @@ from fastapi.templating import Jinja2Templates
 
 from app.users.models import User
 from app.users.dependencies import get_current_user
+from app.roles.dependencies import require_roles
+from app.roles.models import Role, RoleTypes
 
 router = APIRouter(prefix="/partials", tags=["Partial Pages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -220,3 +222,25 @@ async def get_edit_security(
         "partials/edit_security.html",
         {"request": request, "current_user": current_user}
     )
+
+@router.get("/tickets/user")
+async def user_tickets_partial(
+    request: Request,
+    current_user: User = Depends(get_current_user)
+):
+    """Частичная страница тикетов пользователя"""
+    return templates.TemplateResponse("partials/user_tickets.html", {
+        "request": request,
+        "current_user": current_user
+    })
+
+@router.get("/tickets/admin")
+async def admin_tickets_partial(
+    request: Request,
+    current_user: User = Depends(require_roles([RoleTypes.MODERATOR, RoleTypes.ADMIN, RoleTypes.SUPER_ADMIN]))
+):
+    """Частичная страница админских тикетов"""
+    return templates.TemplateResponse("partials/admin_tickets.html", {
+        "request": request,
+        "current_user": current_user
+    })

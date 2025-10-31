@@ -2,17 +2,19 @@
 ```
 # /app/Project_structure_today.md
 
+└```
 └── 📁app
     └── 📁.ideas
         ├── ____by_visibleparrot8054844_v4.zip
         ├── ____by_visibleparrot8054844_v9.zip
         ├── messenger by_Viy.zip
+        ├── readme.md
         ├── ticketsystem_by_Viy.zip
     └── 📁billing
         ├── dao.py
         ├── models.py
         ├── router.py
-    └── 📁chat              /позже рассмотрим
+    └── 📁chat
         ├── dao.py
         ├── models.py
         ├── router.py
@@ -21,14 +23,13 @@
         ├── base.py
     └── 📁lk
         ├── router.py
-    └── 📁majors            /тренировачная часть
+    └── 📁majors
         ├── dao.py
         ├── models.py
         ├── rb.py
         ├── router.py
         ├── schemas.py
     └── 📁migration
-        └── 📁versions
         ├── env.py
         ├── README
         ├── script.py.mako
@@ -37,6 +38,8 @@
     └── 📁monitoring
         ├── router.py
     └── 📁pages
+        ├── router.py
+    └── 📁partials
         ├── router.py
     └── 📁roles
         ├── dao.py
@@ -55,28 +58,49 @@
             ├── 2.webp
             ├── 4.webp
             ├── 5.webp
+            ├── favicon.svg
+            ├── icon.png
         └── 📁js
             ├── auth.js
             ├── chat.js
             ├── main.js
-            ├── script_old.js
+            ├── profile-edit.js
             ├── script.js
         └── 📁style
             ├── auth.css
             ├── chat.css
+            ├── main_aside.css
             ├── main.css
+            ├── profile-edit.css
+            ├── profile.css
             ├── register.css
             ├── student.css
             ├── styles.css
-    └── 📁students           / тренировочная часть
+    └── 📁studentsc
         ├── dao.py
         ├── models.py
         ├── rb.py
         ├── router.py
         ├── schemas.py
+    └── 📁tasks
+        ├── background_tasks.py
+        ├── log_cleanup_task.py
     └── 📁templates
+        └── 📁partials
+            ├── base.html
+            ├── edit_basic_profile.html
+            ├── edit_password.html
+            ├── edit_profile.html
+            ├── edit_security.html
+            ├── profile_old.html
+            ├── profile_simple.html
+            ├── profile.html
         ├── auth.html
         ├── chat.html
+        ├── dashboard_old.html
+        ├── dashboard.html
+        ├── dashboard25.html
+        ├── debug_partials.html
         ├── index.html
         ├── login_form.html
         ├── main.html
@@ -87,7 +111,7 @@
         ├── servicesdb.html
         ├── student.html
         ├── students.html
-    └── 📁ticket           /в разработке
+    └── 📁ticket
         ├── dao.py
         ├── models.py
         ├── router.py
@@ -96,23 +120,30 @@
         ├── auth.py
         ├── dao.py
         ├── dependencies.py
+        ├── ip_dao.py
+        ├── log_cleaner.py
         ├── models.py
         ├── rb.py
         ├── router.py
         ├── schemas.py
     └── 📁utils
+        ├── datetime_utils.py
         ├── phone_parser.py
-    └── 📁verificationcodes      / на будущее - позже
+        ├── secutils.py
+    └── 📁verificationcodes
         ├── dao.py
         ├── models.py
     ├── config.py
     ├── database.py
     ├── exceptions.py
+    ├── logger.py
     ├── main.py
     ├── majors.json
+    ├── Project_structure_today.md
     ├── README.md
     └── students_1part.json
 ```
+
 
 ✅ 1. Используем технологии SSR.
 ✅ 2. В Панели управления используем полностью динамическую SPA-архитектуру с:

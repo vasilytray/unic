@@ -1,0 +1,153 @@
+<!-- app/templates/partials/admin_tickets.html -->
+<div class="tickets-container">
+    <div class="content-header">
+        <h1>Управление обращениями</h1>
+        <div class="breadcrumb">
+            <span>Главная</span> / <span>Администрирование</span> / <span class="active">Обращения</span>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="card-header">
+            <h3>Все обращения</h3>
+            <div class="tickets-stats">
+                <span id="total-tickets">0 всего</span>
+                <span id="open-tickets">0 открыто</span>
+            </div>
+        </div>
+        
+        <div class="tickets-filters">
+            <select id="status-filter">
+                <option value="">Все статусы</option>
+                <option value="Open">Открытые</option>
+                <option value="In Progress">В работе</option>
+                <option value="Awaiting User Response">Ожидают ответа</option>
+                <option value="Closed">Закрытые</option>
+            </select>
+            
+            <select id="priority-filter">
+                <option value="">Все приоритеты</option>
+                <option value="Low">Низкий</option>
+                <option value="Medium">Средний</option>
+                <option value="High">Высокий</option>
+                <option value="Urgent">Срочный</option>
+            </select>
+            
+            <input type="number" id="user-id-filter" placeholder="ID пользователя">
+            
+            <button class="btn-small" data-action="apply-filters">Применить</button>
+        </div>
+
+        <div id="tickets-list" class="tickets-list">
+            <div class="loading-spinner">
+                <i class="fas fa-spinner fa-spin"></i>
+                <p>Загрузка обращений...</p>
+            </div>
+        </div>
+
+        <div id="tickets-pagination" class="pagination">
+            <!-- Пагинация -->
+        </div>
+    </div>
+</div>
+
+
+
+<style>
+.ticket-item.pinned {
+    border-left: 4px solid #ffc107;
+    background: #fffdf6;
+}
+
+.ticket-title {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.ticket-title i {
+    color: #ffc107;
+}
+
+.ticket-badges {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+}
+
+.ticket-user {
+    background: #e9ecef;
+    color: #6c757d;
+    padding: 2px 6px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    white-space: nowrap;
+}
+
+.tickets-stats {
+    display: flex;
+    gap: 15px;
+    font-size: 0.9em;
+    color: #666;
+}
+
+.tickets-stats span {
+    background: #f8f9fa;
+    padding: 4px 8px;
+    border-radius: 4px;
+    white-space: nowrap;
+}
+
+.ticket-description {
+    color: #666;
+    margin-bottom: 10px;
+    overflow: hidden;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    box-orient: vertical;
+}
+
+/* Адаптивность для мобильных устройств */
+@media (max-width: 768px) {
+    .card-header {
+        flex-direction: column;
+        gap: 15px;
+        align-items: flex-start;
+    }
+    
+    .tickets-filters {
+        flex-direction: column;
+    }
+    
+    .ticket-header {
+        flex-direction: column;
+        gap: 10px;
+    }
+    
+    .ticket-badges {
+        justify-content: flex-start;
+    }
+    
+    .ticket-meta {
+        flex-direction: column;
+        gap: 8px;
+    }
+    
+    .ticket-actions {
+        text-align: left;
+    }
+    
+    .pagination-controls {
+        gap: 3px;
+    }
+    
+    .pagination-controls button,
+    .pagination-controls span {
+        padding: 6px 8px;
+        min-width: 35px;
+        font-size: 0.9em;
+    }
+}
+</style>

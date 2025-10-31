@@ -30,6 +30,7 @@ from app.roles.router import router as router_roles
 from app.pages.router import router as router_pages
 from app.lk.router import router as router_lk
 from app.partials.router import router as partials_router
+from app.tickets.router import router as router_ticket
 from app.services.router import router as router_services
 from app.monitoring.router import router as router_monitoring
 from app.billing.router import router as router_billing
@@ -129,6 +130,7 @@ app.include_router(partials_router)   # Добавляем роутер част
 # app.include_router(lk.router, prefix="/lk", tags=["Personal Cabinet"])
 app.include_router(router_lk)
 app.include_router(router_users)
+app.include_router(router_ticket)
 app.include_router(router_services)
 app.include_router(router_billing)
 app.include_router(router_students)

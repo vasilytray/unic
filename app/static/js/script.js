@@ -302,6 +302,556 @@ function showNotification(message, type) {
     }, 4000);
 }
 
+// ==============================================
+// ТИКЕТ СИСТЕМА - ФУНКЦИИ ДЛЯ ЧАСТИЧНЫХ СТРАНИЦ
+// ==============================================
+
+// Глобальные переменные для тикетов
+window.ticketsModule = {
+    currentUserPage: 1,
+    currentAdminPage: 1
+};
+
+// Инициализация тикет модуля при загрузке частичных страниц
+function initializeTicketsModule(moduleType) {
+    logInfo(`Инициализация модуля тикетов: ${moduleType}`);
+    
+    switch(moduleType) {
+        case 'user-tickets':
+            initializeUserTickets();
+            break;
+        case 'admin-tickets':
+            initializeAdminTickets();
+            break;
+    }
+}
+
+// ==================== ПОЛЬЗОВАТЕЛЬСКИЕ ТИКЕТЫ ====================
+
+function initializeUserTickets() {
+    logInfo('Инициализация пользовательских тикетов');
+    loadUserTickets();
+    initializeUserTicketEventHandlers();
+}
+
+function initializeUserTicketEventHandlers() {
+    // Обработчик фильтра статуса
+    const statusFilter = document.getElementById('status-filter');
+    if (statusFilter) {
+        statusFilter.addEventListener('change', function() {
+            logInfo('Фильтр статуса изменен:', this.value);
+            window.ticketsModule.currentUserPage = 1;
+            loadUserTickets();
+        });
+    }
+    
+    // Делегирование событий для пагинации
+    const paginationContainer = document.getElementById('tickets-pagination');
+    if (paginationContainer) {
+        paginationContainer.addEventListener('click', function(e) {
+            if (e.target.matches('.page-btn')) {
+                const page = parseInt(e.target.dataset.page);
+                logInfo('Переход на страницу пользовательских тикетов:', page);
+                if (!isNaN(page)) {
+                    window.ticketsModule.currentUserPage = page;
+                    loadUserTickets(page);
+                }
+            }
+        });
+    }
+    
+    // Делегирование событий для кликов по тикетам
+    const ticketsList = document.getElementById('tickets-list');
+    if (ticketsList) {
+        ticketsList.addEventListener('click', function(e) {
+            const ticketItem = e.target.closest('.ticket-item');
+            if (ticketItem) {
+                const ticketId = ticketItem.dataset.ticketId;
+                if (ticketId) {
+                    logInfo('Открытие тикета:', ticketId);
+                    openUserTicket(parseInt(ticketId));
+                }
+            }
+            
+            // Обработка кнопок действий в тикетах
+            if (e.target.matches('[data-action="open-user-ticket"]')) {
+                const ticketId = e.target.closest('.ticket-item').dataset.ticketId;
+                if (ticketId) {
+                    logInfo('Открытие тикета через кнопку:', ticketId);
+                    openUserTicket(parseInt(ticketId));
+                }
+            }
+        });
+    }
+
+    // Обработчики для модального окна создания тикета
+    const createTicketModal = document.getElementById('create-ticket-modal');
+    if (createTicketModal) {
+        // Закрытие по клику на overlay
+        createTicketModal.addEventListener('click', function(e) {
+            if (e.target === this) {
+                closeCreateTicketModal();
+            }
+        });
+    }
+    
+    // Обработчик формы создания тикета
+    const ticketForm = document.getElementById('create-ticket-form');
+    if (ticketForm) {
+        // Удаляем старые обработчики
+        ticketForm.removeEventListener('submit', submitTicketForm);
+        // Добавляем новый обработчик
+        ticketForm.addEventListener('submit', function(e) {
+            console.log('Форма отправляется, предотвращаем стандартное поведение...');
+            e.preventDefault();
+            e.stopPropagation();
+            submitTicketForm(e);
+        });
+    }
+
+    // Также добавим обработчик для кнопки отправки
+    const submitBtn = document.querySelector('#create-ticket-form button[type="submit"]');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', function(e) {
+            e.preventDefault();
+            e.stopPropagation();
+        });
+    }
+    
+    // Делегирование событий для кнопок закрытия модального окна
+    document.addEventListener('click', function(e) {
+        if (e.target.matches('[data-action="close-create-ticket-modal"]')) {
+            closeCreateTicketModal();
+        }
+    });
+}
+
+async function loadUserTickets(page = null) {
+    if (page !== null) {
+        window.ticketsModule.currentUserPage = page;
+    }
+    
+    const currentPage = window.ticketsModule.currentUserPage;
+    const statusFilter = document.getElementById('status-filter')?.value || '';
+    
+    logInfo(`Загрузка пользовательских тикетов, страница: ${currentPage}, фильтр: ${statusFilter}`);
+    
+    try {
+        const response = await fetch(`/tickets/api/user/tickets?page=${currentPage}&status=${statusFilter}`, {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        logInfo('Статус ответа пользовательских тикетов:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        logInfo('Получены данные пользовательских тикетов:', data);
+        
+        renderUserTicketsList(data.tickets || []);
+        renderUserPagination(data);
+        
+    } catch (error) {
+        logError('Error loading user tickets:', error);
+        showNotification('Ошибка загрузки обращений: ' + error.message, 'error');
+        renderUserErrorState();
+    }
+}
+
+function renderUserTicketsList(tickets) {
+    const container = document.getElementById('tickets-list');
+    if (!container) return;
+    
+    logInfo('Рендеринг пользовательских тикетов:', tickets.length);
+    
+    if (tickets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-ticket-alt"></i>
+                <h3>У вас пока нет обращений</h3>
+                <p>Создайте первое обращение в техническую поддержку</p>
+                <button class="btn-primary" data-action="create-ticket">
+                    Создать обращение
+                </button>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = tickets.map(ticket => `
+        <div class="ticket-item" data-ticket-id="${ticket.id}">
+            <div class="ticket-header">
+                <h4>${ticket.subject || 'Без темы'}</h4>
+                <span class="ticket-priority priority-${(ticket.priority || 'Medium').toLowerCase()}">
+                    ${ticket.priority || 'Medium'}
+                </span>
+            </div>
+            <div class="ticket-body">
+                <p class="ticket-description">${ticket.description || 'Нет описания'}</p>
+                <div class="ticket-meta">
+                    <span class="ticket-status status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}">
+                        ${ticket.status || 'Open'}
+                    </span>
+                    <span class="ticket-date">
+                        ${ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('ru-RU') : 'Неизвестно'}
+                    </span>
+                    <span class="ticket-messages">
+                        ${ticket.message_count || 0} сообщений
+                    </span>
+                </div>
+            </div>
+            <div class="ticket-actions">
+                <button class="btn-small" data-action="open-user-ticket">
+                    Открыть
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderUserPagination(data) {
+    const container = document.getElementById('tickets-pagination');
+    if (!container) return;
+    
+    const totalPages = data.total_pages || 1;
+    const currentPage = data.page || 1;
+    
+    logInfo('Рендеринг пагинации пользовательских тикетов:', { totalPages, currentPage });
+    
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let paginationHTML = '<div class="pagination-controls">';
+    
+    // Кнопка "Назад"
+    if (currentPage > 1) {
+        paginationHTML += `<button class="page-btn" data-page="${currentPage - 1}">‹ Назад</button>`;
+    }
+    
+    // Номера страниц
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+            paginationHTML += `<span class="current-page">${i}</span>`;
+        } else {
+            paginationHTML += `<button class="page-btn" data-page="${i}">${i}</button>`;
+        }
+    }
+    
+    // Кнопка "Вперед"
+    if (currentPage < totalPages) {
+        paginationHTML += `<button class="page-btn" data-page="${currentPage + 1}">Вперед ›</button>`;
+    }
+    
+    paginationHTML += '</div>';
+    container.innerHTML = paginationHTML;
+}
+
+function renderUserErrorState() {
+    const container = document.getElementById('tickets-list');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="empty-state error-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Ошибка загрузки</h3>
+            <p>Не удалось загрузить обращения. Попробуйте обновить страницу.</p>
+            <button class="btn-primary" onclick="loadUserTickets()">
+                <i class="fas fa-redo"></i>
+                Попробовать снова
+            </button>
+        </div>
+    `;
+}
+
+function openUserTicket(ticketId) {
+    logInfo('Открытие пользовательского тикета в новой вкладке:', ticketId);
+    window.open(`/tickets#ticket/${ticketId}/user`, '_blank');
+}
+
+// ==================== АДМИНСКИЕ ТИКЕТЫ ====================
+
+function initializeAdminTickets() {
+    logInfo('Инициализация админских тикетов');
+    loadAdminTickets();
+    loadTicketsStats();
+    initializeAdminTicketEventHandlers();
+}
+
+function initializeAdminTicketEventHandlers() {
+    // Обработчик применения фильтров
+    const applyBtn = document.querySelector('[data-action="apply-admin-filters"]');
+    if (applyBtn) {
+        applyBtn.addEventListener('click', function() {
+            logInfo('Применение админских фильтров...');
+            window.ticketsModule.currentAdminPage = 1;
+            loadAdminTickets();
+        });
+    }
+    
+    // Делегирование событий для пагинации
+    const paginationContainer = document.getElementById('admin-tickets-pagination');
+    if (paginationContainer) {
+        paginationContainer.addEventListener('click', function(e) {
+            if (e.target.matches('.page-btn')) {
+                const page = parseInt(e.target.dataset.page);
+                logInfo('Переход на страницу админских тикетов:', page);
+                if (!isNaN(page)) {
+                    window.ticketsModule.currentAdminPage = page;
+                    loadAdminTickets(page);
+                }
+            }
+        });
+    }
+    
+    // Делегирование событий для кликов по тикетам
+    const ticketsList = document.getElementById('admin-tickets-list');
+    if (ticketsList) {
+        ticketsList.addEventListener('click', function(e) {
+            const ticketItem = e.target.closest('.ticket-item');
+            if (!ticketItem) return;
+            
+            const ticketId = ticketItem.dataset.ticketId;
+            if (!ticketId) return;
+            
+            // Обработка кнопок действий в тикетах
+            if (e.target.matches('[data-action]')) {
+                const action = e.target.dataset.action;
+                
+                switch(action) {
+                    case 'open-admin-ticket':
+                        logInfo('Открытие админского тикета:', ticketId);
+                        openAdminTicket(parseInt(ticketId));
+                        break;
+                    case 'toggle-pin-ticket':
+                        const currentPinState = ticketItem.classList.contains('pinned');
+                        logInfo('Переключение закрепления тикета:', ticketId, 'новое состояние:', !currentPinState);
+                        togglePinTicket(parseInt(ticketId), !currentPinState);
+                        break;
+                }
+            }
+        });
+    }
+}
+
+async function loadAdminTickets(page = null) {
+    if (page !== null) {
+        window.ticketsModule.currentAdminPage = page;
+    }
+    
+    const currentPage = window.ticketsModule.currentAdminPage;
+    const statusFilter = document.getElementById('admin-status-filter')?.value || '';
+    const priorityFilter = document.getElementById('admin-priority-filter')?.value || '';
+    const userIdFilter = document.getElementById('admin-user-id-filter')?.value || '';
+    
+    logInfo(`Загрузка админских тикетов, страница: ${currentPage}`);
+    
+    try {
+        let url = `/tickets/api/admin/tickets?page=${currentPage}`;
+        if (statusFilter) url += `&status=${statusFilter}`;
+        if (priorityFilter) url += `&priority=${priorityFilter}`;
+        if (userIdFilter) url += `&user_id=${userIdFilter}`;
+        
+        logInfo('URL запроса админских тикетов:', url);
+        
+        const response = await fetch(url, {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        logInfo('Статус ответа админских тикетов:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        logInfo('Получены данные админских тикетов:', data);
+        
+        renderAdminTicketsList(data.tickets || []);
+        renderAdminPagination(data);
+        
+    } catch (error) {
+        logError('Error loading admin tickets:', error);
+        showNotification('Ошибка загрузки обращений: ' + error.message, 'error');
+        renderAdminErrorState();
+    }
+}
+
+async function loadTicketsStats() {
+    try {
+        logInfo('Загрузка статистики тикетов...');
+        const response = await fetch('/tickets/api/tickets/stats', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const stats = await response.json();
+            logInfo('Статистика тикетов:', stats);
+            
+            document.getElementById('total-tickets').textContent = `${stats.total || 0} всего`;
+            document.getElementById('open-tickets').textContent = `${stats.by_status?.Open || 0} открыто`;
+        } else {
+            logError('Ошибка загрузки статистики:', response.status);
+        }
+    } catch (error) {
+        logError('Error loading stats:', error);
+    }
+}
+
+function renderAdminTicketsList(tickets) {
+    const container = document.getElementById('admin-tickets-list');
+    if (!container) return;
+    
+    logInfo('Рендеринг админских тикетов:', tickets.length);
+    
+    if (tickets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-ticket-alt"></i>
+                <h3>Обращения не найдены</h3>
+                <p>Попробуйте изменить параметры фильтрации</p>
+            </div>
+        `;
+        return;
+    }
+    
+    container.innerHTML = tickets.map(ticket => `
+        <div class="ticket-item ${ticket.is_pinned ? 'pinned' : ''}" data-ticket-id="${ticket.id}">
+            <div class="ticket-header">
+                <div class="ticket-title">
+                    ${ticket.is_pinned ? '<i class="fas fa-thumbtack" title="Закреплено"></i>' : ''}
+                    <h4>${ticket.subject || 'Без темы'}</h4>
+                </div>
+                <div class="ticket-badges">
+                    <span class="ticket-priority priority-${(ticket.priority || 'Medium').toLowerCase()}">
+                        ${ticket.priority || 'Medium'}
+                    </span>
+                    <span class="ticket-user">ID:${ticket.user_id || 'Неизвестно'}</span>
+                </div>
+            </div>
+            <div class="ticket-body">
+                <p class="ticket-description">${ticket.description || 'Нет описания'}</p>
+                <div class="ticket-meta">
+                    <span class="ticket-status status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}">
+                        ${ticket.status || 'Open'}
+                    </span>
+                    <span class="ticket-date">
+                        ${ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('ru-RU') : 'Неизвестно'}
+                    </span>
+                    <span class="ticket-messages">
+                        ${ticket.message_count || 0} сообщений
+                    </span>
+                </div>
+            </div>
+            <div class="ticket-actions">
+                <button class="btn-small" data-action="open-admin-ticket">
+                    Управление
+                </button>
+                <button class="btn-small ${ticket.is_pinned ? 'btn-warning' : 'btn-secondary'}" 
+                        data-action="toggle-pin-ticket">
+                    ${ticket.is_pinned ? 'Открепить' : 'Закрепить'}
+                </button>
+            </div>
+        </div>
+    `).join('');
+}
+
+function renderAdminPagination(data) {
+    const container = document.getElementById('admin-tickets-pagination');
+    if (!container) return;
+    
+    const totalPages = data.total_pages || 1;
+    const currentPage = data.page || 1;
+    
+    logInfo('Рендеринг пагинации админских тикетов:', { totalPages, currentPage });
+    
+    if (totalPages <= 1) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let paginationHTML = '<div class="pagination-controls">';
+    
+    if (currentPage > 1) {
+        paginationHTML += `<button class="page-btn" data-page="${currentPage - 1}">‹ Назад</button>`;
+    }
+    
+    for (let i = 1; i <= totalPages; i++) {
+        if (i === currentPage) {
+            paginationHTML += `<span class="current-page">${i}</span>`;
+        } else {
+            paginationHTML += `<button class="page-btn" data-page="${i}">${i}</button>`;
+        }
+    }
+    
+    if (currentPage < totalPages) {
+        paginationHTML += `<button class="page-btn" data-page="${currentPage + 1}">Вперед ›</button>`;
+    }
+    
+    paginationHTML += '</div>';
+    container.innerHTML = paginationHTML;
+}
+
+function renderAdminErrorState() {
+    const container = document.getElementById('admin-tickets-list');
+    if (!container) return;
+    
+    container.innerHTML = `
+        <div class="empty-state error-state">
+            <i class="fas fa-exclamation-triangle"></i>
+            <h3>Ошибка загрузки</h3>
+            <p>Не удалось загрузить обращения. Попробуйте обновить страницу.</p>
+            <button class="btn-primary" onclick="loadAdminTickets()">
+                <i class="fas fa-redo"></i>
+                Попробовать снова
+            </button>
+        </div>
+    `;
+}
+
+function openAdminTicket(ticketId) {
+    logInfo('Открытие админского тикета в новой вкладке:', ticketId);
+    window.open(`/tickets/admin#ticket/${ticketId}/admin`, '_blank');
+}
+
+async function togglePinTicket(ticketId, pinState) {
+    try {
+        logInfo('Обновление закрепления тикета:', ticketId, pinState);
+        
+        const response = await fetch(`/tickets/api/tickets/${ticketId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                is_pinned: pinState
+            })
+        });
+        
+        if (response.ok) {
+            showNotification(`Тикет ${pinState ? 'закреплен' : 'откреплен'}`, 'success');
+            loadAdminTickets();
+        } else {
+            const errorData = await response.json();
+            logError('Ошибка обновления тикета:', errorData);
+            showNotification('Ошибка обновления тикета', 'error');
+        }
+    } catch (error) {
+        logError('Error toggling pin:', error);
+        showNotification('Ошибка обновления тикета', 'error');
+    }
+}
+
+
 // Система динамических модулей с TTL-кэшированием
 class ContentManager {
     constructor() {
@@ -394,6 +944,20 @@ class ContentManager {
             breadcrumb: ['Главная', 'Профиль', 'Безопасность'],
             type: 'partial',
             url: '/partials/edit-security'
+        });
+
+        this.modules.set('user-tickets', {
+            title: 'Мои обращения',
+            breadcrumb: ['Главная', 'Поддержка', 'Мои обращения'],
+            type: 'partial',
+            url: '/partials/tickets/user'
+        });
+
+        this.modules.set('admin-tickets', {
+            title: 'Управление обращениями',
+            breadcrumb: ['Главная', 'Администрирование', 'Обращения'],
+            type: 'partial', 
+            url: '/partials/tickets/admin'
         });
     }
 
@@ -664,6 +1228,16 @@ class ContentManager {
             });
         });
 
+        // ИНИЦИАЛИЗАЦИЯ ТИКЕТ СИСТЕМЫ ПОСЛЕ ЗАГРУЗКИ
+        setTimeout(() => {
+            console.log('🔄 Автоматическая инициализация тикет системы...');
+            if (this.currentModule === 'user-tickets') {
+                initializeUserTickets();
+            } else if (this.currentModule === 'admin-tickets') {
+                initializeAdminTickets();
+            }
+        }, 100);
+
         logInfo(`✅ Обработчики событий инициализированы (${newActionButtons.length} кнопок, ${contentCards.length} карточек)`);
     }
 
@@ -852,6 +1426,116 @@ function initializeEventHandlers() {
     }
 }
 
+// Добавьте эту функцию ПЕРЕД функцией handleAction
+function createNewTicket() {
+    logInfo('Открытие формы создания тикета...');
+    openCreateTicketModal();
+}
+
+// Функции для работы с модальным окном создания тикета
+function openCreateTicketModal() {
+    const modal = document.getElementById('create-ticket-modal');
+    if (modal) {
+        modal.style.display = 'flex';
+        // Сброс формы
+        document.getElementById('create-ticket-form').reset();
+        document.getElementById('ticket-subject').focus();
+    } else {
+        logError('Модальное окно создания тикета не найдено');
+        // Fallback: открываем страницу тикетов
+        window.open('/tickets', '_blank');
+    }
+}
+
+function closeCreateTicketModal() {
+    const modal = document.getElementById('create-ticket-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Функция отправки формы тикета
+async function submitTicketForm(event) {
+    event.preventDefault();
+    event.stopPropagation(); // Добавляем эту строку!
+
+    console.log('Начало отправки формы тикета...');
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    const subject = formData.get('subject');
+    const description = formData.get('description');
+    const priority = formData.get('priority');
+    
+    console.log('Данные формы:', { subject, description, priority });
+    
+    // Валидация
+    if (!subject || !description) {
+        showNotification('Пожалуйста, заполните тему и описание обращения', 'error');
+        return;
+    }
+    
+    try {
+        // Показываем индикатор загрузки
+        const submitBtn = form.querySelector('button[type="submit"]');
+        const originalText = submitBtn.innerHTML;
+        submitBtn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Отправка...';
+        submitBtn.disabled = true;
+        
+        console.log('Отправка запроса на сервер...');
+        
+
+        const response = await fetch('/tickets/api/tickets', {
+            method: 'POST',
+            headers: {
+                'accept': 'application/json',
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                subject: subject,
+                description: description,
+                priority: priority
+            }),
+            credentials: 'include'
+        });
+        
+        console.log('Ответ сервера:', response.status, response.statusText);
+
+        if (response.ok) {
+            const result = await response.json();
+            console.log('Тикет создан:', result);
+            showNotification('Обращение успешно создано!', 'success');
+            closeCreateTicketModal();
+            
+            // Обновляем список тикетов
+            if (typeof loadUserTickets === 'function') {
+                console.log('Обновление списка тикетов...');
+                loadUserTickets();
+            }
+            else {
+                console.error('Функция loadUserTickets не найдена');
+            }
+        } else {
+            const errorData = await response.json();
+            throw new Error(errorData.detail || 'Ошибка при создании обращения');
+        }
+        
+    } catch (error) {
+        console.error('Error creating ticket:', error);
+        showNotification('Ошибка при создании обращения: ' + error.message, 'error');
+    } finally {
+        // Восстанавливаем кнопку
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить обращение';
+            submitBtn.disabled = false;
+        }
+    }
+    
+    return false; // Дополнительная защита от отправки формы
+}
+
 // Обработчик действий
 function handleAction(action, element, event = null) {
     logInfo(`Обработка действия: ${action}`, element);
@@ -959,6 +1643,20 @@ function handleAction(action, element, event = null) {
             const ipAddress = element.dataset.ip;
             if (typeof window.removeIP === 'function') {
                 window.removeIP(ipAddress);
+            }
+            break;
+        
+        case 'create-ticket':
+            createNewTicket(); // Теперь открывает модальное окно
+            break;
+
+        case 'close-create-ticket-modal':
+            closeCreateTicketModal();
+            break;
+
+        case 'apply-admin-filters':
+            if (typeof loadAdminTickets === 'function') {
+                loadAdminTickets();
             }
             break;
             
