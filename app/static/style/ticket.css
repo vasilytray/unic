@@ -365,12 +365,12 @@ form button[type="submit"]:hover, #set-user-email:hover, #create-new-ticket:hove
 }
 
 .portal-left-column {
-    flex: 1 1 50%; /* Takes up 50% */
+    flex: 1 1 30%; /* Takes up 50% */
     min-width: 300px; /* Ensure minimum size */
 }
 
 .portal-right-column {
-    flex: 1 1 50%; /* Takes up 50% */
+    flex: 1 1 70%; /* Takes up 50% */
     overflow-y: auto;
 }
 

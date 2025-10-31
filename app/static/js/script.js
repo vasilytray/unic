@@ -312,6 +312,46 @@ window.ticketsModule = {
     currentAdminPage: 1
 };
 
+// ==================== ГЛОБАЛЬНЫЕ ОБРАБОТЧИКИ ТИКЕТОВ ====================
+
+let currentSelectedTicket = null;
+
+function initializeGlobalTicketHandlers() {
+    logInfo('Инициализация глобальных обработчиков тикетов');
+    
+    // Глобальный обработчик для формы сообщений
+    document.addEventListener('submit', function(e) {
+        if (e.target && e.target.id === 'add-message-form') {
+            e.preventDefault();
+            e.stopPropagation();
+            
+            if (currentSelectedTicket) {
+                logInfo('Обработка отправки сообщения для тикета:', currentSelectedTicket);
+                handleMessageSubmit(currentSelectedTicket);
+            } else {
+                showNotification('Выберите обращение для отправки сообщения', 'error');
+            }
+        }
+    });
+    
+    // Глобальный обработчик для кликов по тикетам
+    document.addEventListener('click', function(e) {
+        const ticketItem = e.target.closest('.ticket-item');
+        if (ticketItem) {
+            const ticketId = ticketItem.dataset.ticketId;
+            if (ticketId) {
+                logInfo('Открытие тикета через глобальный обработчик:', ticketId);
+                openUserTicket(parseInt(ticketId));
+            }
+        }
+    });
+}
+
+// Вызов инициализации глобальных обработчиков при загрузке DOM
+document.addEventListener('DOMContentLoaded', function() {
+    initializeGlobalTicketHandlers();
+});
+
 // Инициализация тикет модуля при загрузке частичных страниц
 function initializeTicketsModule(moduleType) {
     logInfo(`Инициализация модуля тикетов: ${moduleType}`);
@@ -359,35 +399,10 @@ function initializeUserTicketEventHandlers() {
             }
         });
     }
-    
-    // Делегирование событий для кликов по тикетам
-    const ticketsList = document.getElementById('tickets-list');
-    if (ticketsList) {
-        ticketsList.addEventListener('click', function(e) {
-            const ticketItem = e.target.closest('.ticket-item');
-            if (ticketItem) {
-                const ticketId = ticketItem.dataset.ticketId;
-                if (ticketId) {
-                    logInfo('Открытие тикета:', ticketId);
-                    openUserTicket(parseInt(ticketId));
-                }
-            }
-            
-            // Обработка кнопок действий в тикетах
-            if (e.target.matches('[data-action="open-user-ticket"]')) {
-                const ticketId = e.target.closest('.ticket-item').dataset.ticketId;
-                if (ticketId) {
-                    logInfo('Открытие тикета через кнопку:', ticketId);
-                    openUserTicket(parseInt(ticketId));
-                }
-            }
-        });
-    }
 
     // Обработчики для модального окна создания тикета
     const createTicketModal = document.getElementById('create-ticket-modal');
     if (createTicketModal) {
-        // Закрытие по клику на overlay
         createTicketModal.addEventListener('click', function(e) {
             if (e.target === this) {
                 closeCreateTicketModal();
@@ -398,9 +413,7 @@ function initializeUserTicketEventHandlers() {
     // Обработчик формы создания тикета
     const ticketForm = document.getElementById('create-ticket-form');
     if (ticketForm) {
-        // Удаляем старые обработчики
         ticketForm.removeEventListener('submit', submitTicketForm);
-        // Добавляем новый обработчик
         ticketForm.addEventListener('submit', function(e) {
             console.log('Форма отправляется, предотвращаем стандартное поведение...');
             e.preventDefault();
@@ -409,15 +422,6 @@ function initializeUserTicketEventHandlers() {
         });
     }
 
-    // Также добавим обработчик для кнопки отправки
-    const submitBtn = document.querySelector('#create-ticket-form button[type="submit"]');
-    if (submitBtn) {
-        submitBtn.addEventListener('click', function(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        });
-    }
-    
     // Делегирование событий для кнопок закрытия модального окна
     document.addEventListener('click', function(e) {
         if (e.target.matches('[data-action="close-create-ticket-modal"]')) {
@@ -476,7 +480,7 @@ function renderUserTicketsList(tickets) {
                 <h3>У вас пока нет обращений</h3>
                 <p>Создайте первое обращение в техническую поддержку</p>
                 <button class="btn-primary" data-action="create-ticket">
-                    Создать обращение
+                    Создать новое обращение
                 </button>
             </div>
         `;
@@ -486,13 +490,12 @@ function renderUserTicketsList(tickets) {
     container.innerHTML = tickets.map(ticket => `
         <div class="ticket-item" data-ticket-id="${ticket.id}">
             <div class="ticket-header">
-                <h4>${ticket.subject || 'Без темы'}</h4>
+                <h3>${ticket.subject || 'Без темы'}</h3>
                 <span class="ticket-priority priority-${(ticket.priority || 'Medium').toLowerCase()}">
                     ${ticket.priority || 'Medium'}
                 </span>
             </div>
             <div class="ticket-body">
-                <p class="ticket-description">${ticket.description || 'Нет описания'}</p>
                 <div class="ticket-meta">
                     <span class="ticket-status status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}">
                         ${ticket.status || 'Open'}
@@ -505,11 +508,11 @@ function renderUserTicketsList(tickets) {
                     </span>
                 </div>
             </div>
-            <div class="ticket-actions">
+            <!--<div class="ticket-actions">
                 <button class="btn-small" data-action="open-user-ticket">
                     Открыть
                 </button>
-            </div>
+            </div>-->
         </div>
     `).join('');
 }
@@ -570,10 +573,212 @@ function renderUserErrorState() {
     `;
 }
 
+// function openUserTicket(ticketId) {
+//     logInfo('Открытие пользовательского тикета в новой вкладке:', ticketId);
+//     window.open(`/tickets#ticket/${ticketId}/user`, '_blank');
+// }
+
+// ==================== ФУНКЦИИ ДЛЯ ПАНЕЛИ ИСТОРИИ ТИКЕТА ====================
+
+// let currentSelectedTicket = null;
+
 function openUserTicket(ticketId) {
-    logInfo('Открытие пользовательского тикета в новой вкладке:', ticketId);
-    window.open(`/tickets#ticket/${ticketId}/user`, '_blank');
+    logInfo('Открытие пользовательского тикета:', ticketId);
+    
+    // Снимаем выделение со всех тикетов
+    document.querySelectorAll('.ticket-item').forEach(item => {
+        item.classList.remove('active');
+    });
+    
+    // Выделяем выбранный тикет
+    const selectedTicket = document.querySelector(`[data-ticket-id="${ticketId}"]`);
+    if (selectedTicket) {
+        selectedTicket.classList.add('active');
+    }
+    
+    // Загружаем данные тикета
+    loadTicketDetails(ticketId);
+    currentSelectedTicket = ticketId;
 }
+
+async function loadTicketDetails(ticketId) {
+    try {
+        logInfo('Загрузка деталей тикета:', ticketId);
+        
+        const response = await fetch(`/tickets/api/tickets/${ticketId}`, {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const ticket = await response.json();
+        logInfo('Получены детали тикета:', ticket);
+        
+        renderTicketDetails(ticket);
+        
+    } catch (error) {
+        logError('Error loading ticket details:', error);
+        showNotification('Ошибка загрузки деталей обращения', 'error');
+    }
+}
+
+function renderTicketDetails(ticket) {
+    const historyPanel = document.getElementById('ticket-history-panel');
+    const noTicketPanel = document.getElementById('no-ticket-selected');
+    
+    if (historyPanel && noTicketPanel) {
+        // Показываем панель истории, скрываем сообщение о выборе
+        historyPanel.style.display = 'block';
+        noTicketPanel.style.display = 'none';
+        
+        // Заполняем информацию о тикете
+        document.getElementById('ticket-subject-display').textContent = ticket.subject || 'Без темы';
+        document.getElementById('ticket-id-display').textContent = `#${ticket.id}`;
+        document.getElementById('ticket-priority-display').textContent = ticket.priority || 'Medium';
+        document.getElementById('ticket-priority-display').className = `priority-${(ticket.priority || 'Medium').toLowerCase()}`;
+        document.getElementById('ticket-status-display').textContent = ticket.status || 'Open';
+        document.getElementById('ticket-status-display').className = `status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}`;
+        
+        // Форматируем дату обновления
+        const updatedAt = ticket.updated_at ? new Date(ticket.updated_at) : null;
+        document.getElementById('ticket-updated-display').textContent = updatedAt ? 
+            updatedAt.toLocaleDateString('ru-RU', { 
+                day: 'numeric', 
+                month: 'long', 
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            }) : 'Неизвестно';
+        
+        // Рендерим историю сообщений
+        renderMessageHistory(ticket.messages || []);
+        
+        // Настраиваем форму отправки сообщений
+        setupMessageForm(ticket.id, ticket.status);
+    }
+}
+
+function renderMessageHistory(messages) {
+    const messageHistory = document.getElementById('message-history');
+    
+    if (!messages || messages.length === 0) {
+        messageHistory.innerHTML = `
+            <div class="empty-messages">
+                <i class="fas fa-comments"></i>
+                <p>Нет сообщений в истории</p>
+            </div>
+        `;
+        return;
+    }
+    
+    messageHistory.innerHTML = messages.map(message => `
+        <div class="message-item">
+            <div class="message-header">
+                <span class="message-sender">${message.sender_name || 'Неизвестный отправитель'}</span>
+                <span class="message-time">
+                    ${message.created_at ? new Date(message.created_at).toLocaleDateString('ru-RU', {
+                        day: 'numeric',
+                        month: 'long',
+                        year: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    }) : 'Неизвестно'}
+                </span>
+            </div>
+            <div class="message-text">${message.message_text || ''}</div>
+        </div>
+    `).join('');
+    
+    // Прокручиваем к последнему сообщению
+    messageHistory.scrollTop = messageHistory.scrollHeight;
+}
+
+function setupMessageForm(ticketId, ticketStatus) {
+    // УПРОЩЕННАЯ ВЕРСИЯ - только управление состоянием формы
+    const messageForm = document.getElementById('add-message-form');
+    const messageText = document.getElementById('new-message-text');
+    
+    if (messageForm && messageText) {
+        // Блокируем форму если тикет закрыт
+        if (ticketStatus === 'Closed') {
+            messageText.disabled = true;
+            messageText.placeholder = 'Тикет закрыт. Новые сообщения не принимаются.';
+            const submitBtn = messageForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Тикет закрыт';
+            }
+        } else {
+            messageText.disabled = false;
+            messageText.placeholder = 'Введите ваше сообщение...';
+            const submitBtn = messageForm.querySelector('button[type="submit"]');
+            if (submitBtn) {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fas fa-paper-plane"></i> Отправить сообщение';
+            }
+        }
+        
+        // Очищаем поле ввода
+        messageText.value = '';
+    }
+}
+
+async function handleMessageSubmit(ticketId) {
+    const messageText = document.getElementById('new-message-text');
+    
+    if (!messageText || !messageText.value.trim()) {
+        showNotification('Введите текст сообщения', 'error');
+        return;
+    }
+    
+    try {
+        logInfo('Отправка сообщения для тикета:', ticketId);
+        
+        const response = await fetch(`/tickets/api/tickets/${ticketId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                message_text: messageText.value.trim()
+            }),
+            credentials: 'include'
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        logInfo('Сообщение отправлено:', result);
+        
+        showNotification('Сообщение успешно отправлено', 'success');
+        
+        // Очищаем поле ввода
+        messageText.value = '';
+        
+        // Обновляем историю сообщений
+        await loadTicketDetails(ticketId);
+        
+        // Обновляем список тикетов (для обновления времени и статуса)
+        if (typeof loadUserTickets === 'function') {
+            loadUserTickets();
+        }
+        
+    } catch (error) {
+        logError('Error sending message:', error);
+        showNotification('Ошибка отправки сообщения: ' + error.message, 'error');
+    }
+}
+
+// ==================== КОНЕЦ ФУНКЦИЙ ДЛЯ ПАНЕЛИ ИСТОРИИ ====================
+
 
 // ==================== АДМИНСКИЕ ТИКЕТЫ ====================
 
