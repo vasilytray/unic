@@ -116,27 +116,33 @@ class TicketDAO(BaseDAO):
         page_size: int = 25,
         status: Optional[str] = None,
         priority: Optional[str] = None,
-        user_id: Optional[int] = None
+        user_id: Optional[int] = None,
+        is_pinned: Optional[bool] = None  # Добавьте этот параметр
     ):
-        """Получить все тикеты для админов"""
+        """Получить все тикеты для админов с ограничением 300"""
         async with async_session_maker() as session:
             query = select(Ticket)
-            
+
             if status:
                 query = query.where(Ticket.status == status)
             if priority:
                 query = query.where(Ticket.priority == priority)
             if user_id:
                 query = query.where(Ticket.user_id == user_id)
-            
-            # Подсчет
+            if is_pinned is not None:
+                query = query.where(Ticket.is_pinned == is_pinned)
+
+            # Подсчет общего количества (без пагинации для фильтров)
             count_query = select(func.count()).select_from(query.subquery())
             total_count = await session.scalar(count_query) or 0
-            
+
+            # Ограничиваем общее количество 300
+            effective_total_count = min(total_count, 300)
+
             # Данные с пагинацией
             query = query.order_by(desc(Ticket.is_pinned), desc(Ticket.updated_at))
             query = query.offset((page - 1) * page_size).limit(page_size)
-            
+
             result = await session.execute(query)
             tickets = result.scalars().all()
             
@@ -168,10 +174,10 @@ class TicketDAO(BaseDAO):
             
             return {
                 "tickets": tickets_data,
-                "total_count": total_count,
+                "total_count": effective_total_count,  # Возвращаем ограниченное количество
                 "page": page,
                 "page_size": page_size,
-                "total_pages": (total_count + page_size - 1) // page_size if page_size > 0 else 1
+                "total_pages": (effective_total_count + page_size - 1) // page_size if page_size > 0 else 1
             }
 
     @classmethod

@@ -1,0 +1,556 @@
+<!-- app/templates/partials/admin_ticket_request.html -->
+<div class="ticket-management-container">
+    <div class="content-header">
+        <h1>Управление обращением</h1>
+        <div class="breadcrumb">
+            <span>Главная</span> / <span>Администрирование</span> / <span>Обращения</span> / <span class="active">Обращение #<span id="ticket-id-display"></span></span>
+        </div>
+    </div>
+
+    <div class="card ticket-detail-card">
+        <div class="ticket-header-actions">
+            <button class="btn-secondary" id="back-to-tickets-list">
+                <i class="fas fa-arrow-left"></i> Назад к списку
+            </button>
+            
+            <div class="ticket-quick-actions">
+                <button class="btn-small btn-warning" data-action="toggle-pin-ticket" id="pin-ticket-btn">
+                    <i class="fas fa-thumbtack"></i> Закрепить
+                </button>
+                <button class="btn-small btn-danger" data-action="close-ticket" id="close-ticket-btn">
+                    <i class="fas fa-lock"></i> Закрыть обращение
+                </button>
+            </div>
+        </div>
+
+        <div class="ticket-info-grid">
+            <div class="ticket-main-info">
+                <h2 id="ticket-subject-display">Загрузка...</h2>
+                
+                <div class="ticket-meta-grid">
+                    <div class="meta-item">
+                        <label>Клиент:</label>
+                        <span id="ticket-user-info">Загрузка...</span>
+                    </div>
+                    <div class="meta-item">
+                        <label>Создано:</label>
+                        <span id="ticket-created-at">Загрузка...</span>
+                    </div>
+                    <div class="meta-item">
+                        <label>Обновлено:</label>
+                        <span id="ticket-updated-at">Загрузка...</span>
+                    </div>
+                    <div class="meta-item">
+                        <label>Сообщений:</label>
+                        <span id="ticket-messages-count">0</span>
+                    </div>
+                </div>
+
+                <div class="ticket-description-section">
+                    <h4>Описание проблемы:</h4>
+                    <div class="ticket-description-content" id="ticket-description-content">
+                        Загрузка...
+                    </div>
+                </div>
+            </div>
+
+            <div class="ticket-status-panel">
+                <div class="status-control-group">
+                    <label for="ticket-status-select">Статус обращения:</label>
+                    <select id="ticket-status-select" class="status-select">
+                        <option value="Open">Открыт</option>
+                        <option value="In Progress">В работе</option>
+                        <option value="Awaiting User Response">Ожидает ответа пользователя</option>
+                        <option value="Closed">Закрыт</option>
+                    </select>
+                </div>
+
+                <div class="priority-control-group">
+                    <label for="ticket-priority-select">Приоритет:</label>
+                    <select id="ticket-priority-select" class="priority-select">
+                        <option value="Low">Низкий</option>
+                        <option value="Medium">Средний</option>
+                        <option value="High">Высокий</option>
+                        <option value="Urgent">Срочный</option>
+                    </select>
+                </div>
+
+                <div class="ticket-badges-display">
+                    <div class="current-status-badge">
+                        <span>Текущий статус:</span>
+                        <span class="status-badge" id="current-status-badge">Open</span>
+                    </div>
+                    <div class="current-priority-badge">
+                        <span>Приоритет:</span>
+                        <span class="priority-badge" id="current-priority-badge">Medium</span>
+                    </div>
+                </div>
+
+                <button class="btn-primary" id="save-ticket-changes">
+                    <i class="fas fa-save"></i> Сохранить изменения
+                </button>
+            </div>
+        </div>
+
+        <div class="ticket-conversation-section">
+            <div class="section-header">
+                <h3><i class="fas fa-comments"></i> История переписки</h3>
+                <span class="section-badge" id="conversation-count">0 сообщений</span>
+            </div>
+            
+            <div class="message-history" id="message-history">
+                <div class="loading-spinner">
+                    <i class="fas fa-spinner fa-spin"></i>
+                    <p>Загрузка истории сообщений...</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="ticket-reply-section">
+            <div class="section-header">
+                <h3><i class="fas fa-reply"></i> Добавить ответ</h3>
+            </div>
+            
+            <form id="admin-reply-form" class="reply-form">
+                <div class="form-group">
+                    <label for="admin-message-text">Сообщение поддержки:</label>
+                    <textarea 
+                        id="admin-message-text" 
+                        placeholder="Введите ваш ответ пользователю..."
+                        rows="6"
+                        required
+                    ></textarea>
+                </div>
+                
+                <div class="form-options">
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="reply-as-staff" checked>
+                        <span class="checkmark"></span>
+                        Ответить от имени Техподдержки
+                    </label>
+                    
+                    <label class="checkbox-label">
+                        <input type="checkbox" id="change-status-on-reply">
+                        <span class="checkmark"></span>
+                        Изменить статус на "Ожидает ответа пользователя"
+                    </label>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn-primary btn-large">
+                        <i class="fas fa-paper-plane"></i> Отправить ответ
+                    </button>
+                    <button type="button" class="btn-secondary" id="preview-message">
+                        <i class="fas fa-eye"></i> Предпросмотр
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+.ticket-management-container {
+    padding: 20px;
+}
+
+.ticket-detail-card {
+    background: white;
+    border-radius: 8px;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    overflow: hidden;
+}
+
+.ticket-header-actions {
+    padding: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 15px;
+    background: #f8f9fa;
+}
+
+.ticket-quick-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.ticket-info-grid {
+    padding: 20px;
+    display: grid;
+    grid-template-columns: 1fr 300px;
+    gap: 30px;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.ticket-main-info h2 {
+    margin: 0 0 20px 0;
+    color: #333;
+    font-size: 1.5em;
+    word-break: break-word;
+}
+
+.ticket-meta-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 15px;
+    margin-bottom: 20px;
+}
+
+.meta-item {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+}
+
+.meta-item label {
+    font-weight: 600;
+    color: #666;
+    font-size: 0.9em;
+}
+
+.meta-item span {
+    color: #333;
+    font-weight: 500;
+}
+
+.ticket-description-section {
+    margin-top: 20px;
+}
+
+.ticket-description-section h4 {
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.ticket-description-content {
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 6px;
+    border-left: 4px solid #007bff;
+    line-height: 1.5;
+    color: #555;
+}
+
+/* Панель статуса */
+.ticket-status-panel {
+    background: #f8f9fa;
+    padding: 20px;
+    border-radius: 8px;
+    border: 1px solid #e0e0e0;
+}
+
+.status-control-group,
+.priority-control-group {
+    margin-bottom: 20px;
+}
+
+.status-control-group label,
+.priority-control-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+.status-select,
+.priority-select {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+}
+
+.ticket-badges-display {
+    margin: 20px 0;
+    padding: 15px;
+    background: white;
+    border-radius: 6px;
+    border: 1px solid #e0e0e0;
+}
+
+.current-status-badge,
+.current-priority-badge {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.current-status-badge:last-child,
+.current-priority-badge:last-child {
+    margin-bottom: 0;
+}
+
+/* Секции переписки и ответа */
+.ticket-conversation-section,
+.ticket-reply-section {
+    padding: 20px;
+}
+
+.ticket-conversation-section {
+    border-bottom: 1px solid #e0e0e0;
+}
+
+/* История сообщений */
+.message-history {
+    max-height: 500px;
+    overflow-y: auto;
+    margin-top: 15px;
+}
+
+.message-item {
+    background: white;
+    border: 1px solid #e0e0e0;
+    border-radius: 8px;
+    padding: 15px;
+    margin-bottom: 15px;
+    transition: all 0.2s;
+}
+
+.message-item:hover {
+    border-color: #007bff;
+}
+
+.message-item.staff-message {
+    border-left: 4px solid #007bff;
+    background: #f0f8ff;
+}
+
+.message-item.user-message {
+    border-left: 4px solid #28a745;
+    background: #f8fff8;
+}
+
+.message-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid #f0f0f0;
+}
+
+.message-sender {
+    font-weight: 600;
+    color: #333;
+}
+
+.message-sender.staff {
+    color: #007bff;
+}
+
+.message-sender.user {
+    color: #28a745;
+}
+
+.message-time {
+    font-size: 0.85em;
+    color: #666;
+}
+
+.message-text {
+    line-height: 1.5;
+    color: #555;
+    white-space: pre-wrap;
+}
+
+.no-messages {
+    text-align: center;
+    padding: 40px 20px;
+    color: #666;
+}
+
+.no-messages i {
+    font-size: 3em;
+    margin-bottom: 15px;
+    opacity: 0.5;
+}
+
+/* Форма ответа */
+.reply-form {
+    margin-top: 15px;
+}
+
+.form-group {
+    margin-bottom: 20px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: 600;
+    color: #333;
+}
+
+#admin-message-text {
+    width: 100%;
+    padding: 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    background: white;
+    font-size: 14px;
+    line-height: 1.5;
+    resize: vertical;
+    font-family: inherit;
+}
+
+#admin-message-text:focus {
+    outline: none;
+    border-color: #007bff;
+    box-shadow: 0 0 0 2px rgba(0,123,255,0.25);
+}
+
+.form-options {
+    margin-bottom: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
+    font-size: 0.9em;
+    color: #555;
+}
+
+.checkbox-label input[type="checkbox"] {
+    margin: 0;
+}
+
+.form-actions {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.btn-large {
+    padding: 12px 24px;
+    font-size: 1em;
+}
+
+/* Бейджи статусов и приоритетов */
+.status-badge,
+.priority-badge {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 0.8em;
+    font-weight: 500;
+    white-space: nowrap;
+}
+
+.status-Open { background: #e3f2fd; color: #1976d2; }
+.status-InProgress { background: #fff3e0; color: #f57c00; }
+.status-AwaitingUserResponse { background: #fff8e1; color: #ffa000; }
+.status-Closed { background: #e8f5e8; color: #388e3c; }
+
+.priority-Low { background: #e8f5e8; color: #388e3c; }
+.priority-Medium { background: #fff3e0; color: #f57c00; }
+.priority-High { background: #ffe0e0; color: #d32f2f; }
+.priority-Urgent { background: #fce4ec; color: #c2185b; }
+
+/* Адаптивность */
+@media (max-width: 968px) {
+    .ticket-info-grid {
+        grid-template-columns: 1fr;
+        gap: 20px;
+    }
+    
+    .ticket-status-panel {
+        order: -1;
+    }
+}
+
+@media (max-width: 768px) {
+    .ticket-management-container {
+        padding: 10px;
+    }
+    
+    .ticket-header-actions {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 10px;
+    }
+    
+    .ticket-quick-actions {
+        width: 100%;
+        justify-content: flex-start;
+    }
+    
+    .ticket-info-grid,
+    .ticket-conversation-section,
+    .ticket-reply-section {
+        padding: 15px;
+    }
+    
+    .ticket-meta-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .form-actions {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    
+    .form-actions button {
+        width: 100%;
+    }
+}
+
+/* Анимации */
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+.message-item {
+    animation: fadeIn 0.3s ease-out;
+}
+
+/* Стили для предпросмотра */
+.message-preview {
+    background: #fff3cd;
+    border: 1px solid #ffeaa7;
+    border-radius: 6px;
+    padding: 15px;
+    margin-bottom: 15px;
+    display: none;
+}
+
+.message-preview.show {
+    display: block;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.preview-header {
+    font-weight: 600;
+    color: #856404;
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: between;
+    align-items: center;
+}
+
+.preview-close {
+    background: none;
+    border: none;
+    color: #856404;
+    cursor: pointer;
+    font-size: 1.2em;
+}
+
+.preview-content {
+    color: #856404;
+    line-height: 1.5;
+    white-space: pre-wrap;
+}
+</style>

@@ -489,19 +489,27 @@ function renderUserTicketsList(tickets) {
     
     container.innerHTML = tickets.map(ticket => `
         <div class="ticket-item" data-ticket-id="${ticket.id}">
+            <div class="ticket-title">
+                <h4>${ticket.subject || 'Без темы'}</h4>
+            </div>
             <div class="ticket-header">
-                <h3>${ticket.subject || 'Без темы'}</h3>
                 <span class="ticket-priority priority-${(ticket.priority || 'Medium').toLowerCase()}">
                     ${ticket.priority || 'Medium'}
+                </span>
+                <span class="ticket-status status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}">
+                    ${ticket.status || 'Open'}
                 </span>
             </div>
             <div class="ticket-body">
                 <div class="ticket-meta">
-                    <span class="ticket-status status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}">
-                        ${ticket.status || 'Open'}
-                    </span>
                     <span class="ticket-date">
-                        ${ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('ru-RU') : 'Неизвестно'}
+                        ${ticket.updated_at ? new Date(ticket.updated_at).toLocaleDateString('ru-RU', { 
+                            day: 'numeric', 
+                            month: 'numeric', 
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : 'Неизвестно'}
                     </span>
                     <span class="ticket-messages">
                         ${ticket.message_count || 0} сообщений
@@ -800,6 +808,29 @@ function initializeAdminTicketEventHandlers() {
         });
     }
     
+    // Обработчик сброса фильтров
+    const resetBtn = document.querySelector('[data-action="reset-admin-filters"]');
+    if (resetBtn) {
+        resetBtn.addEventListener('click', function() {
+            logInfo('Сброс админских фильтров...');
+            document.getElementById('admin-status-filter').value = '';
+            document.getElementById('admin-priority-filter').value = '';
+            document.getElementById('admin-user-id-filter').value = '';
+            window.ticketsModule.currentAdminPage = 1;
+            loadAdminTickets();
+        });
+    }
+    
+    // Обработчик изменения количества на странице
+    const pageSizeSelect = document.getElementById('admin-page-size');
+    if (pageSizeSelect) {
+        pageSizeSelect.addEventListener('change', function() {
+            logInfo('Изменение количества тикетов на странице:', this.value);
+            window.ticketsModule.currentAdminPage = 1;
+            loadAdminTickets();
+        });
+    }
+    
     // Делегирование событий для пагинации
     const paginationContainer = document.getElementById('admin-tickets-pagination');
     if (paginationContainer) {
@@ -817,32 +848,36 @@ function initializeAdminTicketEventHandlers() {
     
     // Делегирование событий для кликов по тикетам
     const ticketsList = document.getElementById('admin-tickets-list');
-    if (ticketsList) {
-        ticketsList.addEventListener('click', function(e) {
-            const ticketItem = e.target.closest('.ticket-item');
-            if (!ticketItem) return;
-            
-            const ticketId = ticketItem.dataset.ticketId;
-            if (!ticketId) return;
-            
-            // Обработка кнопок действий в тикетах
-            if (e.target.matches('[data-action]')) {
-                const action = e.target.dataset.action;
+    const pinnedList = document.getElementById('pinned-tickets-list');
+    
+    [ticketsList, pinnedList].forEach(container => {
+        if (container) {
+            container.addEventListener('click', function(e) {
+                const ticketItem = e.target.closest('.ticket-item');
+                if (!ticketItem) return;
                 
-                switch(action) {
-                    case 'open-admin-ticket':
-                        logInfo('Открытие админского тикета:', ticketId);
-                        openAdminTicket(parseInt(ticketId));
-                        break;
-                    case 'toggle-pin-ticket':
-                        const currentPinState = ticketItem.classList.contains('pinned');
-                        logInfo('Переключение закрепления тикета:', ticketId, 'новое состояние:', !currentPinState);
-                        togglePinTicket(parseInt(ticketId), !currentPinState);
-                        break;
+                const ticketId = ticketItem.dataset.ticketId;
+                if (!ticketId) return;
+                
+                // Обработка кнопок действий в тикетах
+                if (e.target.matches('[data-action]')) {
+                    const action = e.target.dataset.action;
+                    
+                    switch(action) {
+                        case 'open-admin-ticket':
+                            logInfo('Открытие админского тикета:', ticketId);
+                            openAdminTicket(parseInt(ticketId));
+                            break;
+                        case 'toggle-pin-ticket':
+                            const currentPinState = ticketItem.classList.contains('pinned');
+                            logInfo('Переключение закрепления тикета:', ticketId, 'новое состояние:', !currentPinState);
+                            togglePinTicket(parseInt(ticketId), !currentPinState);
+                            break;
+                    }
                 }
-            }
-        });
-    }
+            });
+        }
+    });
 }
 
 async function loadAdminTickets(page = null) {
@@ -854,11 +889,12 @@ async function loadAdminTickets(page = null) {
     const statusFilter = document.getElementById('admin-status-filter')?.value || '';
     const priorityFilter = document.getElementById('admin-priority-filter')?.value || '';
     const userIdFilter = document.getElementById('admin-user-id-filter')?.value || '';
+    const pageSize = document.getElementById('admin-page-size')?.value || '25';
     
-    logInfo(`Загрузка админских тикетов, страница: ${currentPage}`);
+    logInfo(`Загрузка админских тикетов, страница: ${currentPage}, размер: ${pageSize}`);
     
     try {
-        let url = `/tickets/api/admin/tickets?page=${currentPage}`;
+        let url = `/tickets/api/admin/tickets?page=${currentPage}&page_size=${pageSize}`;
         if (statusFilter) url += `&status=${statusFilter}`;
         if (priorityFilter) url += `&priority=${priorityFilter}`;
         if (userIdFilter) url += `&user_id=${userIdFilter}`;
@@ -883,6 +919,7 @@ async function loadAdminTickets(page = null) {
         
         renderAdminTicketsList(data.tickets || []);
         renderAdminPagination(data);
+        updateTicketsCounters(data);
         
     } catch (error) {
         logError('Error loading admin tickets:', error);
@@ -891,39 +928,50 @@ async function loadAdminTickets(page = null) {
     }
 }
 
-async function loadTicketsStats() {
-    try {
-        logInfo('Загрузка статистики тикетов...');
-        const response = await fetch('/tickets/api/tickets/stats', {
-            credentials: 'include'
-        });
-        
-        if (response.ok) {
-            const stats = await response.json();
-            logInfo('Статистика тикетов:', stats);
-            
-            document.getElementById('total-tickets').textContent = `${stats.total || 0} всего`;
-            document.getElementById('open-tickets').textContent = `${stats.by_status?.Open || 0} открыто`;
-        } else {
-            logError('Ошибка загрузки статистики:', response.status);
-        }
-    } catch (error) {
-        logError('Error loading stats:', error);
-    }
-}
-
 function renderAdminTicketsList(tickets) {
-    const container = document.getElementById('admin-tickets-list');
-    if (!container) return;
+    const regularContainer = document.getElementById('admin-tickets-list');
+    const pinnedContainer = document.getElementById('pinned-tickets-list');
+    const pinnedSection = document.getElementById('pinned-tickets-section');
+    
+    if (!regularContainer || !pinnedContainer) return;
     
     logInfo('Рендеринг админских тикетов:', tickets.length);
     
-    if (tickets.length === 0) {
-        container.innerHTML = `
+    // Разделяем тикеты на закрепленные и обычные
+    const pinnedTickets = tickets.filter(ticket => ticket.is_pinned);
+    const regularTickets = tickets.filter(ticket => !ticket.is_pinned);
+    
+    logInfo(`Закрепленные: ${pinnedTickets.length}, Обычные: ${regularTickets.length}`);
+    
+    // Показываем/скрываем секцию закрепленных тикетов
+    if (pinnedTickets.length > 0) {
+        pinnedSection.style.display = 'block';
+        renderTicketsToContainer(pinnedTickets, pinnedContainer, true);
+    } else {
+        pinnedSection.style.display = 'none';
+        pinnedContainer.innerHTML = '';
+    }
+    
+    // Рендерим обычные тикеты
+    if (regularTickets.length === 0 && pinnedTickets.length === 0) {
+        regularContainer.innerHTML = `
             <div class="empty-state">
                 <i class="fas fa-ticket-alt"></i>
                 <h3>Обращения не найдены</h3>
                 <p>Попробуйте изменить параметры фильтрации</p>
+            </div>
+        `;
+    } else {
+        renderTicketsToContainer(regularTickets, regularContainer, false);
+    }
+}
+
+function renderTicketsToContainer(tickets, container, isPinned) {
+    if (tickets.length === 0) {
+        container.innerHTML = `
+            <div class="empty-state">
+                <i class="fas fa-inbox"></i>
+                <p>${isPinned ? 'Нет закрепленных обращений' : 'Нет обращений'}</p>
             </div>
         `;
         return;
@@ -943,8 +991,8 @@ function renderAdminTicketsList(tickets) {
                     <span class="ticket-user">ID:${ticket.user_id || 'Неизвестно'}</span>
                 </div>
             </div>
+            <div class="ticket-body-action">
             <div class="ticket-body">
-                <p class="ticket-description">${ticket.description || 'Нет описания'}</p>
                 <div class="ticket-meta">
                     <span class="ticket-status status-${(ticket.status || 'Open').replace(/\s/g, '').toLowerCase()}">
                         ${ticket.status || 'Open'}
@@ -961,13 +1009,41 @@ function renderAdminTicketsList(tickets) {
                 <button class="btn-small" data-action="open-admin-ticket">
                     Управление
                 </button>
-                <button class="btn-small ${ticket.is_pinned ? 'btn-warning' : 'btn-secondary'}" 
+                <button class="btn-small ${ticket.is_pinned ? 'pin-toggle-btn' : 'pin-toggle-btn'}" 
                         data-action="toggle-pin-ticket">
-                    ${ticket.is_pinned ? 'Открепить' : 'Закрепить'}
+                    ${ticket.is_pinned ? '📌' : '📍'}
                 </button>
+            </div>
             </div>
         </div>
     `).join('');
+}
+
+function updateTicketsCounters(data) {
+    const tickets = data.tickets || [];
+    const pinnedCount = tickets.filter(t => t.is_pinned).length;
+    const regularCount = tickets.length - pinnedCount;
+    const totalCount = data.total_count || 0;
+    
+    // Обновляем счетчики в секциях
+    const pinnedCountElement = document.getElementById('pinned-count');
+    const regularCountElement = document.getElementById('regular-count');
+    
+    if (pinnedCountElement) pinnedCountElement.textContent = pinnedCount;
+    if (regularCountElement) regularCountElement.textContent = regularCount;
+    
+    // Обновляем информацию в футере
+    const shownTicketsElement = document.getElementById('shown-tickets');
+    const totalTicketsCountElement = document.getElementById('total-tickets-count');
+    
+    if (shownTicketsElement) shownTicketsElement.textContent = tickets.length;
+    if (totalTicketsCountElement) totalTicketsCountElement.textContent = Math.min(totalCount, 300);
+    
+    // Обновляем статистику
+    const pinnedStatsElement = document.getElementById('pinned-tickets');
+    if (pinnedStatsElement) {
+        pinnedStatsElement.textContent = `${pinnedCount} закреплено`;
+    }
 }
 
 function renderAdminPagination(data) {
@@ -976,21 +1052,37 @@ function renderAdminPagination(data) {
     
     const totalPages = data.total_pages || 1;
     const currentPage = data.page || 1;
+    const totalCount = data.total_count || 0;
     
-    logInfo('Рендеринг пагинации админских тикетов:', { totalPages, currentPage });
+    logInfo('Рендеринг пагинации админских тикетов:', { totalPages, currentPage, totalCount });
     
-    if (totalPages <= 1) {
+    // Ограничиваем общее количество тикетов 300
+    const maxTotalTickets = Math.min(totalCount, 300);
+    const maxPages = Math.ceil(maxTotalTickets / (data.page_size || 25));
+    const effectiveTotalPages = Math.min(totalPages, maxPages);
+    
+    if (effectiveTotalPages <= 1) {
         container.innerHTML = '';
         return;
     }
     
     let paginationHTML = '<div class="pagination-controls">';
     
+    // Кнопка "Назад"
     if (currentPage > 1) {
         paginationHTML += `<button class="page-btn" data-page="${currentPage - 1}">‹ Назад</button>`;
     }
     
-    for (let i = 1; i <= totalPages; i++) {
+    // Номера страниц (максимум 5 страниц вокруг текущей)
+    const startPage = Math.max(1, currentPage - 2);
+    const endPage = Math.min(effectiveTotalPages, currentPage + 2);
+    
+    if (startPage > 1) {
+        paginationHTML += `<button class="page-btn" data-page="1">1</button>`;
+        if (startPage > 2) paginationHTML += `<span class="page-info">...</span>`;
+    }
+    
+    for (let i = startPage; i <= endPage; i++) {
         if (i === currentPage) {
             paginationHTML += `<span class="current-page">${i}</span>`;
         } else {
@@ -998,12 +1090,62 @@ function renderAdminPagination(data) {
         }
     }
     
-    if (currentPage < totalPages) {
+    if (endPage < effectiveTotalPages) {
+        if (endPage < effectiveTotalPages - 1) paginationHTML += `<span class="page-info">...</span>`;
+        paginationHTML += `<button class="page-btn" data-page="${effectiveTotalPages}">${effectiveTotalPages}</button>`;
+    }
+    
+    // Кнопка "Вперед"
+    if (currentPage < effectiveTotalPages) {
         paginationHTML += `<button class="page-btn" data-page="${currentPage + 1}">Вперед ›</button>`;
     }
     
     paginationHTML += '</div>';
     container.innerHTML = paginationHTML;
+}
+
+// Обновите функцию загрузки статистики
+async function loadTicketsStats() {
+    try {
+        logInfo('Загрузка статистики тикетов...');
+        const response = await fetch('/tickets/api/tickets/stats', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const stats = await response.json();
+            logInfo('Статистика тикетов:', stats);
+            
+            document.getElementById('total-tickets').textContent = `${Math.min(stats.total || 0, 300)} всего`;
+            document.getElementById('open-tickets').textContent = `${stats.by_status?.Open || 0} открыто`;
+            
+            // Считаем закрепленные тикеты
+            const pinnedCount = await getPinnedTicketsCount();
+            document.getElementById('pinned-tickets').textContent = `${pinnedCount} закреплено`;
+            
+        } else {
+            logError('Ошибка загрузки статистики:', response.status);
+        }
+    } catch (error) {
+        logError('Error loading stats:', error);
+    }
+}
+
+// Вспомогательная функция для подсчета закрепленных тикетов
+async function getPinnedTicketsCount() {
+    try {
+        const response = await fetch('/tickets/api/admin/tickets?page=1&page_size=1&is_pinned=true', {
+            credentials: 'include'
+        });
+        
+        if (response.ok) {
+            const data = await response.json();
+            return data.total_count || 0;
+        }
+    } catch (error) {
+        logError('Error counting pinned tickets:', error);
+    }
+    return 0;
 }
 
 function renderAdminErrorState() {
@@ -1024,8 +1166,27 @@ function renderAdminErrorState() {
 }
 
 function openAdminTicket(ticketId) {
-    logInfo('Открытие админского тикета в новой вкладке:', ticketId);
-    window.open(`/tickets/admin#ticket/${ticketId}/admin`, '_blank');
+    logInfo('Открытие админского тикета:', ticketId);
+    
+    // Сохраняем ID тикета в глобальной переменной
+    window.currentTicketId = ticketId;
+    
+    // Показываем модуль управления тикетом
+    if (window.contentManager) {
+        // Добавьте модуль в ContentManager
+        if (!window.contentManager.modules.has('admin-ticket-request')) {
+            window.contentManager.modules.set('admin-ticket-request', {
+                title: 'Управление обращением',
+                breadcrumb: ['Главная', 'Администрирование', 'Обращения', 'Управление'],
+                type: 'partial',
+                url: '/partials/tickets/admin_ticket_request'
+            });
+        }
+        window.contentManager.showModule('admin-ticket-request');
+    } else {
+        // Fallback: открываем в новой вкладке
+        window.open(`/tickets/admin#ticket/${ticketId}`, '_blank');
+    }
 }
 
 async function togglePinTicket(ticketId, pinState) {
@@ -1056,6 +1217,437 @@ async function togglePinTicket(ticketId, pinState) {
     }
 }
 
+// ==================== АДМИНСКАЯ СТРАНИЦА УПРАВЛЕНИЯ ТИКЕТОМ ====================
+
+function initializeAdminTicketPage() {
+    console.log('🔄 Инициализация страницы управления тикетом...');
+    
+    // Получаем ID тикета из URL или глобальной переменной
+    const urlParams = new URLSearchParams(window.location.search);
+    const ticketId = urlParams.get('ticketId') || window.currentTicketId;
+    
+    if (!ticketId) {
+        console.error('❌ ID тикета не указан');
+        showNotification('ID тикета не указан', 'error');
+        return;
+    }
+    
+    console.log('Загрузка тикета:', ticketId);
+    loadAdminTicketDetail(ticketId);
+    setupAdminTicketEventHandlers(ticketId);
+}
+
+function setupAdminTicketEventHandlers(ticketId) {
+    console.log('🔄 Настройка обработчиков для тикета:', ticketId);
+    
+    // Кнопка "Назад к списку"
+    const backBtn = document.getElementById('back-to-tickets-list');
+    if (backBtn) {
+        backBtn.addEventListener('click', function() {
+            console.log('← Назад к списку тикетов');
+            if (window.contentManager) {
+                window.contentManager.showModule('admin-tickets');
+            } else {
+                window.history.back();
+            }
+        });
+    }
+    
+    // Сохранение изменений
+    const saveBtn = document.getElementById('save-ticket-changes');
+    if (saveBtn) {
+        saveBtn.addEventListener('click', function() {
+            console.log('💾 Сохранение изменений тикета:', ticketId);
+            updateAdminTicket(ticketId);
+        });
+    }
+    
+    // Быстрые действия
+    const pinBtn = document.getElementById('pin-ticket-btn');
+    if (pinBtn) {
+        pinBtn.addEventListener('click', function() {
+            const currentState = this.classList.contains('btn-warning');
+            console.log('📌 Переключение закрепления:', ticketId, 'новое состояние:', !currentState);
+            togglePinTicket(ticketId, !currentState);
+        });
+    }
+    
+    const closeBtn = document.getElementById('close-ticket-btn');
+    if (closeBtn) {
+        closeBtn.addEventListener('click', function() {
+            console.log('🔒 Закрытие тикета:', ticketId);
+            closeAdminTicket(ticketId);
+        });
+    }
+    
+    // Форма ответа
+    const replyForm = document.getElementById('admin-reply-form');
+    if (replyForm) {
+        replyForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            console.log('📤 Отправка ответа для тикета:', ticketId);
+            handleAdminReply(ticketId);
+        });
+    }
+    
+    // Предпросмотр сообщения
+    const previewBtn = document.getElementById('preview-message');
+    if (previewBtn) {
+        previewBtn.addEventListener('click', function() {
+            console.log('👀 Предпросмотр сообщения');
+            previewAdminMessage();
+        });
+    }
+    
+    console.log('✅ Обработчики настроены для тикета:', ticketId);
+}
+
+async function loadAdminTicketDetail(ticketId) {
+    try {
+        console.log('📥 Загрузка деталей тикета для админа:', ticketId);
+        
+        const response = await fetch(`/tickets/api/tickets/${ticketId}`, {
+            credentials: 'include',
+            headers: {
+                'Accept': 'application/json'
+            }
+        });
+        
+        console.log('📨 Ответ сервера:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const ticket = await response.json();
+        console.log('✅ Получены детали тикета:', ticket);
+        
+        renderAdminTicketDetail(ticket);
+        
+    } catch (error) {
+        console.error('❌ Error loading admin ticket details:', error);
+        showNotification('Ошибка загрузки деталей обращения', 'error');
+    }
+}
+
+function renderAdminTicketDetail(ticket) {
+    console.log('🎨 Рендеринг деталей тикета:', ticket.id);
+    
+    // Основная информация
+    const ticketIdDisplay = document.getElementById('ticket-id-display');
+    const ticketSubject = document.getElementById('ticket-subject-display');
+    const ticketUserInfo = document.getElementById('ticket-user-info');
+    const ticketCreatedAt = document.getElementById('ticket-created-at');
+    const ticketUpdatedAt = document.getElementById('ticket-updated-at');
+    const ticketMessagesCount = document.getElementById('ticket-messages-count');
+    const ticketDescription = document.getElementById('ticket-description-content');
+    const conversationCount = document.getElementById('conversation-count');
+    
+    if (ticketIdDisplay) ticketIdDisplay.textContent = ticket.id;
+    if (ticketSubject) ticketSubject.textContent = ticket.subject || 'Без темы';
+    if (ticketUserInfo) ticketUserInfo.textContent = `ID: ${ticket.user_id} (${ticket.user_email})`;
+    if (ticketCreatedAt) ticketCreatedAt.textContent = formatDetailedDate(ticket.created_at);
+    if (ticketUpdatedAt) ticketUpdatedAt.textContent = formatDetailedDate(ticket.updated_at);
+    if (ticketMessagesCount) ticketMessagesCount.textContent = ticket.message_count || 0;
+    if (ticketDescription) ticketDescription.textContent = ticket.description || 'Нет описания';
+    if (conversationCount) conversationCount.textContent = `${ticket.messages?.length || 0} сообщений`;
+    
+    // Управление статусом и приоритетом
+    const statusSelect = document.getElementById('ticket-status-select');
+    const prioritySelect = document.getElementById('ticket-priority-select');
+    
+    if (statusSelect) {
+        statusSelect.value = ticket.status || 'Open';
+        console.log('🎯 Установлен статус:', ticket.status);
+    }
+    if (prioritySelect) {
+        prioritySelect.value = ticket.priority || 'Medium';
+        console.log('🎯 Установлен приоритет:', ticket.priority);
+    }
+    
+    // Бейджи
+    updateStatusBadge(ticket.status);
+    updatePriorityBadge(ticket.priority);
+    
+    // Кнопка закрепления
+    const pinBtn = document.getElementById('pin-ticket-btn');
+    if (pinBtn) {
+        if (ticket.is_pinned) {
+            pinBtn.innerHTML = '<i class="fas fa-thumbtack"></i> Открепить';
+            pinBtn.classList.add('btn-warning');
+            pinBtn.classList.remove('btn-secondary');
+        } else {
+            pinBtn.innerHTML = '<i class="fas fa-thumbtack"></i> Закрепить';
+            pinBtn.classList.remove('btn-warning');
+            pinBtn.classList.add('btn-secondary');
+        }
+        console.log('📌 Состояние кнопки закрепления:', ticket.is_pinned);
+    }
+    
+    // Кнопка закрытия
+    const closeBtn = document.getElementById('close-ticket-btn');
+    if (closeBtn) {
+        if (ticket.status === 'Closed') {
+            closeBtn.innerHTML = '<i class="fas fa-lock-open"></i> Открыть обращение';
+            closeBtn.classList.remove('btn-danger');
+            closeBtn.classList.add('btn-success');
+        } else {
+            closeBtn.innerHTML = '<i class="fas fa-lock"></i> Закрыть обращение';
+            closeBtn.classList.add('btn-danger');
+            closeBtn.classList.remove('btn-success');
+        }
+        console.log('🔒 Состояние кнопки закрытия:', ticket.status);
+    }
+    
+    // История сообщений
+    renderAdminMessageHistory(ticket.messages || []);
+    
+    console.log('✅ Детали тикета отрендерены');
+}
+
+function renderAdminMessageHistory(messages) {
+    const container = document.getElementById('message-history');
+    
+    if (!container) {
+        console.error('❌ Контейнер истории сообщений не найден');
+        return;
+    }
+    
+    console.log('📨 Рендеринг истории сообщений:', messages.length);
+    
+    if (!messages || messages.length === 0) {
+        container.innerHTML = `
+            <div class="no-messages">
+                <i class="fas fa-comments"></i>
+                <p>Нет сообщений в истории</p>
+            </div>
+        `;
+        console.log('📭 Нет сообщений для отображения');
+        return;
+    }
+    
+    container.innerHTML = messages.map(message => `
+        <div class="message-item ${message.sender_id !== message.ticket_user_id ? 'staff-message' : 'user-message'}">
+            <div class="message-header">
+                <span class="message-sender ${message.sender_id !== message.ticket_user_id ? 'staff' : 'user'}">
+                    ${message.sender_name || 'Неизвестный отправитель'}
+                    ${message.sender_id !== message.ticket_user_id ? ' (Техподдержка)' : ''}
+                </span>
+                <span class="message-time">
+                    ${formatDetailedDate(message.created_at)}
+                </span>
+            </div>
+            <div class="message-text">${message.message_text || ''}</div>
+        </div>
+    `).join('');
+    
+    // Прокручиваем к последнему сообщению
+    container.scrollTop = container.scrollHeight;
+    console.log('✅ История сообщений отрендерена');
+}
+
+async function updateAdminTicket(ticketId) {
+    const status = document.getElementById('ticket-status-select')?.value;
+    const priority = document.getElementById('ticket-priority-select')?.value;
+    
+    console.log('🔄 Обновление тикета:', { ticketId, status, priority });
+    
+    try {
+        const response = await fetch(`/tickets/api/tickets/${ticketId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                status: status,
+                priority: priority
+            }),
+            credentials: 'include'
+        });
+        
+        console.log('📨 Ответ обновления:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const updatedTicket = await response.json();
+        showNotification('Настройки обращения обновлены', 'success');
+        
+        // Обновляем UI
+        updateStatusBadge(updatedTicket.status);
+        updatePriorityBadge(updatedTicket.priority);
+        
+        console.log('✅ Тикет обновлен:', updatedTicket);
+        
+    } catch (error) {
+        console.error('❌ Error updating ticket:', error);
+        showNotification('Ошибка обновления обращения: ' + error.message, 'error');
+    }
+}
+
+async function handleAdminReply(ticketId) {
+    const messageText = document.getElementById('admin-message-text')?.value.trim();
+    const changeStatus = document.getElementById('change-status-on-reply')?.checked;
+    
+    console.log('📤 Обработка ответа:', { ticketId, messageLength: messageText?.length, changeStatus });
+    
+    if (!messageText) {
+        showNotification('Введите текст сообщения', 'error');
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/tickets/api/tickets/${ticketId}/messages`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify({
+                message_text: messageText
+            }),
+            credentials: 'include'
+        });
+        
+        console.log('📨 Ответ отправки сообщения:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const newMessage = await response.json();
+        showNotification('Сообщение отправлено', 'success');
+        
+        // Очищаем форму
+        document.getElementById('admin-message-text').value = '';
+        
+        // Обновляем историю сообщений
+        await loadAdminTicketDetail(ticketId);
+        
+        // Меняем статус если нужно
+        if (changeStatus) {
+            console.log('🔄 Изменение статуса на "Ожидает ответа пользователя"');
+            await fetch(`/tickets/api/tickets/${ticketId}`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    status: 'Awaiting User Response'
+                }),
+                credentials: 'include'
+            });
+        }
+        
+        console.log('✅ Ответ отправлен и обработан');
+        
+    } catch (error) {
+        console.error('❌ Error sending admin reply:', error);
+        showNotification('Ошибка отправки сообщения: ' + error.message, 'error');
+    }
+}
+
+function updateStatusBadge(status) {
+    const badge = document.getElementById('current-status-badge');
+    if (badge) {
+        badge.textContent = status;
+        badge.className = 'status-badge status-' + status.replace(/\s/g, '');
+        console.log('🎯 Обновлен бейдж статуса:', status);
+    }
+}
+
+function updatePriorityBadge(priority) {
+    const badge = document.getElementById('current-priority-badge');
+    if (badge) {
+        badge.textContent = priority;
+        badge.className = 'priority-badge priority-' + priority;
+        console.log('🎯 Обновлен бейдж приоритета:', priority);
+    }
+}
+
+function formatDetailedDate(dateString) {
+    if (!dateString) return 'Неизвестно';
+    
+    try {
+        const date = new Date(dateString);
+        return date.toLocaleDateString('ru-RU', {
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+    } catch (error) {
+        console.error('❌ Ошибка форматирования даты:', dateString, error);
+        return 'Неизвестно';
+    }
+}
+
+function previewAdminMessage() {
+    const messageText = document.getElementById('admin-message-text')?.value.trim();
+    
+    if (!messageText) {
+        showNotification('Введите текст для предпросмотра', 'error');
+        return;
+    }
+    
+    // Создаем или обновляем блок предпросмотра
+    let preview = document.getElementById('message-preview');
+    if (!preview) {
+        preview = document.createElement('div');
+        preview.id = 'message-preview';
+        preview.className = 'message-preview';
+        const formOptions = document.querySelector('.form-options');
+        if (formOptions) {
+            formOptions.parentNode.insertBefore(preview, formOptions);
+        }
+    }
+    
+    preview.innerHTML = `
+        <div class="preview-header">
+            Предпросмотр сообщения
+            <button class="preview-close" onclick="this.parentElement.parentElement.classList.remove('show')">×</button>
+        </div>
+        <div class="preview-content">${messageText}</div>
+    `;
+    
+    preview.classList.add('show');
+    console.log('👀 Показан предпросмотр сообщения');
+}
+
+async function closeAdminTicket(ticketId) {
+    console.log('🔒 Закрытие тикета:', ticketId);
+    
+    try {
+        const response = await fetch(`/tickets/api/tickets/${ticketId}`, {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                status: 'Closed'
+            }),
+            credentials: 'include'
+        });
+        
+        console.log('📨 Ответ закрытия тикета:', response.status);
+        
+        if (response.ok) {
+            showNotification('Обращение закрыто', 'success');
+            await loadAdminTicketDetail(ticketId);
+            console.log('✅ Тикет закрыт');
+        } else {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+    } catch (error) {
+        console.error('❌ Error closing ticket:', error);
+        showNotification('Ошибка закрытия обращения: ' + error.message, 'error');
+    }
+}
+
+// ==================== КОНЕЦ ФУНКЦИЙ ДЛЯ АДМИНИСТРИРОВАНИЯ ТИКЕТОВ ====================
 
 // Система динамических модулей с TTL-кэшированием
 class ContentManager {
@@ -1443,6 +2035,19 @@ class ContentManager {
             }
         }, 100);
 
+        // ИНИЦИАЛИЗАЦИЯ АДМИНСКОЙ СТРАНИЦЫ ТИКЕТА
+        setTimeout(() => {
+            console.log('🔄 Проверка инициализации админской страницы тикета...');
+            if (this.currentModule === 'admin-ticket-request') {
+                console.log('🎯 Инициализация админской страницы тикета...');
+                if (typeof initializeAdminTicketPage === 'function') {
+                    initializeAdminTicketPage();
+                } else {
+                    console.error('❌ initializeAdminTicketPage не найдена');
+                }
+            }
+        }, 100);
+
         logInfo(`✅ Обработчики событий инициализированы (${newActionButtons.length} кнопок, ${contentCards.length} карточек)`);
     }
 
@@ -1671,13 +2276,23 @@ async function submitTicketForm(event) {
     
     const subject = formData.get('subject');
     const description = formData.get('description');
-    const priority = formData.get('priority');
+    const priority = 'Medium';
     
     console.log('Данные формы:', { subject, description, priority });
     
     // Валидация
     if (!subject || !description) {
         showNotification('Пожалуйста, заполните тему и описание обращения', 'error');
+        return;
+    }
+    
+    if (subject.length < 5) {
+        showNotification('Тема обращения должна содержать минимум 5 символов', 'error');
+        return;
+    }
+    
+    if (description.length < 10) {
+        showNotification('Описание проблемы должно содержать минимум 10 символов', 'error');
         return;
     }
     
@@ -1700,7 +2315,7 @@ async function submitTicketForm(event) {
             body: JSON.stringify({
                 subject: subject,
                 description: description,
-                priority: priority
+                priority: priority // Всегда "Medium" для новых обращений
             }),
             credentials: 'include'
         });
@@ -1718,12 +2333,36 @@ async function submitTicketForm(event) {
                 console.log('Обновление списка тикетов...');
                 loadUserTickets();
             }
-            else {
-                console.error('Функция loadUserTickets не найдена');
-            }
         } else {
-            const errorData = await response.json();
-            throw new Error(errorData.detail || 'Ошибка при создании обращения');
+            // Получаем детальную информацию об ошибке
+            let errorMessage = 'Ошибка при создании обращения';
+            try {
+                const errorText = await response.text();
+                console.error('Полный текст ответа:', errorText);
+                
+                let errorData;
+                try {
+                    errorData = JSON.parse(errorText);
+                } catch {
+                    errorData = { detail: errorText };
+                }
+                
+                console.error('Детали ошибки:', errorData);
+                
+                if (errorData.detail) {
+                    if (Array.isArray(errorData.detail)) {
+                        errorMessage = errorData.detail.map(err => 
+                            `${err.loc ? err.loc.join('.') + ': ' : ''}${err.msg}`
+                        ).join(', ');
+                    } else {
+                        errorMessage = errorData.detail;
+                    }
+                }
+            } catch (parseError) {
+                console.error('Ошибка парсинга ответа:', parseError);
+                errorMessage = `HTTP error! status: ${response.status}`;
+            }
+            throw new Error(errorMessage);
         }
         
     } catch (error) {
@@ -1738,7 +2377,7 @@ async function submitTicketForm(event) {
         }
     }
     
-    return false; // Дополнительная защита от отправки формы
+    return false;
 }
 
 // Обработчик действий
@@ -1864,6 +2503,13 @@ function handleAction(action, element, event = null) {
                 loadAdminTickets();
             }
             break;
+
+        case 'reset-admin-filters':
+           if (typeof loadAdminTickets === 'function') {
+               // Сброс уже выполняется в обработчике, просто вызываем загрузку
+               loadAdminTickets();
+           }
+           break;
             
         default:
             logWarning(`Неизвестное действие: ${action}`);
@@ -2100,7 +2746,14 @@ function checkCurrentIP() {
 //     }
 // }
 
-
+// Делаем функции глобально доступными
+window.initializeAdminTicketPage = initializeAdminTicketPage;
+window.loadAdminTicketDetail = loadAdminTicketDetail;
+window.handleAdminReply = handleAdminReply;
+window.previewAdminMessage = previewAdminMessage;
+window.updateAdminTicket = updateAdminTicket;
+window.closeAdminTicket = closeAdminTicket;
+window.togglePinTicket = togglePinTicket; // Если еще не глобальная
 
 // Глобальные методы для отладки
 window.debugContentManager = {

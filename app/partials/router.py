@@ -244,3 +244,14 @@ async def admin_tickets_partial(
         "request": request,
         "current_user": current_user
     })
+
+@router.get("/tickets/admin_ticket_request")
+async def admin_ticket_request_partial(
+    request: Request,
+    current_user: User = Depends(require_roles([RoleTypes.MODERATOR, RoleTypes.ADMIN, RoleTypes.SUPER_ADMIN]))
+):
+    """Частичная страница управления тикетом для админов"""
+    return templates.TemplateResponse("partials/admin_ticket_request.html", {
+        "request": request,
+        "current_user": current_user
+    })

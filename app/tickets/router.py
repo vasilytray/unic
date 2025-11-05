@@ -357,6 +357,8 @@ async def admin_tickets_partial(
         "current_user": current_user
     })
 
+# ======== Отладочные роуты ===========
+
 # app/tickets/router.py - добавим отладочные endpoint'ы
 @router.get("/api/debug/check-db")
 async def debug_check_db():
@@ -394,3 +396,28 @@ async def debug_create_test_ticket(current_user: User = Depends(get_current_user
         return await create_ticket(test_ticket, current_user)
     except Exception as e:
         return {"error": str(e)}
+
+@router.get("/api/debug/admin-test")
+async def debug_admin_test(current_user: User = Depends(require_roles([RoleTypes.MODERATOR, RoleTypes.ADMIN, RoleTypes.SUPER_ADMIN]))):
+    """Тестовый endpoint для админских тикетов"""
+    return {
+        "tickets": [
+            {
+                "id": 1,
+                "user_id": 123,
+                "user_email": "test@example.com", 
+                "subject": "Тестовый тикет",
+                "description": "Описание тестового тикета",
+                "status": "Open",
+                "priority": "Medium", 
+                "is_pinned": False,
+                "created_at": "2024-01-01T00:00:00",
+                "updated_at": "2024-01-01T00:00:00",
+                "message_count": 1
+            }
+        ],
+        "total_count": 1,
+        "page": 1,
+        "page_size": 25,
+        "total_pages": 1
+    }
