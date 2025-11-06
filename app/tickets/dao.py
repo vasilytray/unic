@@ -181,6 +181,19 @@ class TicketDAO(BaseDAO):
             }
 
     @classmethod
+    async def get_first_ticket_message(cls, ticket_id: int):
+        """Получить первое сообщение тикета (описание проблемы)"""
+        async with async_session_maker() as session:
+            query = (
+                select(TicketMessage)
+                .where(TicketMessage.ticket_id == ticket_id)
+                .order_by(TicketMessage.created_at)
+                .limit(1)
+            )
+            result = await session.execute(query)
+            return result.scalar_one_or_none()
+        
+    @classmethod
     async def get_ticket_detail(cls, ticket_id: int, user_id: Optional[int] = None):
         """Получить детальную информацию о тикете"""
         async with async_session_maker() as session:
@@ -210,10 +223,14 @@ class TicketDAO(BaseDAO):
             messages_result = await session.execute(messages_query)
             messages = messages_result.unique().scalars().all()
             
+            # Получаем первое сообщение (описание проблемы)
+            first_message = messages[0] if messages else None
+            
             return {
                 'ticket': ticket,
                 'user': user,
-                'messages': messages
+                'messages': messages,
+                'first_message': first_message  # Добавляем первое сообщение
             }
 
     @classmethod

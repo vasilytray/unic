@@ -1341,6 +1341,7 @@ function renderAdminTicketDetail(ticket) {
     const ticketUpdatedAt = document.getElementById('ticket-updated-at');
     const ticketMessagesCount = document.getElementById('ticket-messages-count');
     const ticketDescription = document.getElementById('ticket-description-content');
+    const firstMessageTime = document.getElementById('first-message-time');
     const conversationCount = document.getElementById('conversation-count');
     
     if (ticketIdDisplay) ticketIdDisplay.textContent = ticket.id;
@@ -1349,10 +1350,31 @@ function renderAdminTicketDetail(ticket) {
     if (ticketCreatedAt) ticketCreatedAt.textContent = formatDetailedDate(ticket.created_at);
     if (ticketUpdatedAt) ticketUpdatedAt.textContent = formatDetailedDate(ticket.updated_at);
     if (ticketMessagesCount) ticketMessagesCount.textContent = ticket.message_count || 0;
-    if (ticketDescription) ticketDescription.textContent = ticket.description || 'Нет описания';
+    
+    // Вместо описания тикета показываем первое сообщение
+    if (ticketDescription) {
+        // Ищем первое сообщение пользователя
+        const firstUserMessage = ticket.messages?.find(msg => 
+            msg.sender_id === ticket.user_id
+        );
+        
+        if (firstUserMessage) {
+            ticketDescription.textContent = firstUserMessage.message_text || 'Нет сообщения';
+            if (firstMessageTime) {
+                firstMessageTime.textContent = formatDetailedDate(firstUserMessage.created_at);
+            }
+        } else {
+            // Fallback на описание тикета
+            ticketDescription.textContent = ticket.description || 'Нет описания проблемы';
+            if (firstMessageTime) {
+                firstMessageTime.textContent = formatDetailedDate(ticket.created_at);
+            }
+        }
+    }
+    
     if (conversationCount) conversationCount.textContent = `${ticket.messages?.length || 0} сообщений`;
     
-    // Управление статусом и приоритетом
+    // Остальной код остается без изменений...
     const statusSelect = document.getElementById('ticket-status-select');
     const prioritySelect = document.getElementById('ticket-priority-select');
     
@@ -1368,36 +1390,6 @@ function renderAdminTicketDetail(ticket) {
     // Бейджи
     updateStatusBadge(ticket.status);
     updatePriorityBadge(ticket.priority);
-    
-    // Кнопка закрепления
-    const pinBtn = document.getElementById('pin-ticket-btn');
-    if (pinBtn) {
-        if (ticket.is_pinned) {
-            pinBtn.innerHTML = '<i class="fas fa-thumbtack"></i> Открепить';
-            pinBtn.classList.add('btn-warning');
-            pinBtn.classList.remove('btn-secondary');
-        } else {
-            pinBtn.innerHTML = '<i class="fas fa-thumbtack"></i> Закрепить';
-            pinBtn.classList.remove('btn-warning');
-            pinBtn.classList.add('btn-secondary');
-        }
-        console.log('📌 Состояние кнопки закрепления:', ticket.is_pinned);
-    }
-    
-    // Кнопка закрытия
-    const closeBtn = document.getElementById('close-ticket-btn');
-    if (closeBtn) {
-        if (ticket.status === 'Closed') {
-            closeBtn.innerHTML = '<i class="fas fa-lock-open"></i> Открыть обращение';
-            closeBtn.classList.remove('btn-danger');
-            closeBtn.classList.add('btn-success');
-        } else {
-            closeBtn.innerHTML = '<i class="fas fa-lock"></i> Закрыть обращение';
-            closeBtn.classList.add('btn-danger');
-            closeBtn.classList.remove('btn-success');
-        }
-        console.log('🔒 Состояние кнопки закрытия:', ticket.status);
-    }
     
     // История сообщений
     renderAdminMessageHistory(ticket.messages || []);

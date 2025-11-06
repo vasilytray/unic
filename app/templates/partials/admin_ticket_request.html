@@ -47,9 +47,12 @@
                 </div>
 
                 <div class="ticket-description-section">
-                    <h4>Описание проблемы:</h4>
+                    <h4><i class="fas fa-comment"></i>Обращение:</h4>
                     <div class="ticket-description-content" id="ticket-description-content">
                         Загрузка...
+                    </div>
+                    <div class="message-meta">
+                        <small>Отправлено: <span id="first-message-time">-</span></small>
                     </div>
                 </div>
             </div>
@@ -285,6 +288,18 @@
 .current-status-badge:last-child,
 .current-priority-badge:last-child {
     margin-bottom: 0;
+}
+
+.ticket-description-section h4 {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin: 0 0 10px 0;
+    color: #333;
+}
+
+.ticket-description-section h4 i {
+    color: #007bff;
 }
 
 /* Секции переписки и ответа */

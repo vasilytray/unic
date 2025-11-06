@@ -44,6 +44,7 @@ class TicketShortResponse(BaseModel):
 # Детальная схема с сообщениями
 class TicketDetailResponse(TicketShortResponse):
     messages: List[TicketMessageResponse] = []
+    first_message_text: Optional[str] = None  # Добавляем поле для первого сообщения
     
     model_config = ConfigDict(from_attributes=True)
 

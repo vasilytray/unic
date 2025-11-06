@@ -219,6 +219,10 @@ async def get_ticket(
     ticket = ticket_data['ticket']
     user = ticket_data['user']
     messages = ticket_data['messages']
+    first_message = ticket_data.get('first_message')
+    
+    # Используем первое сообщение как описание проблемы
+    problem_description = first_message.message_text if first_message else ticket.description
     
     # Преобразуем в схему ответа
     return TicketDetailResponse(
@@ -226,7 +230,7 @@ async def get_ticket(
         user_id=ticket.user_id,
         user_email=user.user_email if user else "Unknown",
         subject=ticket.subject,
-        description=ticket.description,
+        description=problem_description,  # Теперь это первое сообщение
         status=ticket.status,
         priority=ticket.priority,
         is_pinned=ticket.is_pinned,
