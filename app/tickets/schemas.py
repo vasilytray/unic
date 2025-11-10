@@ -14,6 +14,7 @@ class TicketMessageResponse(TicketMessageBase):
     ticket_id: int
     sender_id: int
     sender_name: str
+    # sender_email: str  # Добавляем email для проверки роли
     created_at: datetime
     
     model_config = ConfigDict(from_attributes=True)
@@ -31,6 +32,7 @@ class TicketShortResponse(BaseModel):
     id: int
     user_id: int
     user_email: str
+    user_nick: str = "User" # Добавляем user_nick
     subject: str
     status: str
     priority: str
@@ -44,8 +46,9 @@ class TicketShortResponse(BaseModel):
 # Детальная схема с сообщениями
 class TicketDetailResponse(TicketShortResponse):
     messages: List[TicketMessageResponse] = []
-    first_message_text: Optional[str] = None  # Добавляем поле для первого сообщения
-    
+    # first_message_text: Optional[str] = None  # Добавляем поле для первого сообщения
+    first_message_id: Optional[int] = None  # ID первого сообщения
+
     model_config = ConfigDict(from_attributes=True)
 
 class TicketUpdate(BaseModel):

@@ -36,9 +36,10 @@
                 </select>
                 
                 <input type="number" id="admin-user-id-filter" placeholder="ID пользователя">
-                
-                <button class="btn-small" data-action="apply-admin-filters">Применить</button>
-                <button class="btn-small btn-secondary" data-action="reset-admin-filters">Сбросить</button>
+                <div class="btn-two">
+                    <button class="btn-small" data-action="apply-admin-filters">Применить</button>
+                    <button class="btn-small btn-secondary" data-action="reset-admin-filters">Сбросить</button>
+                </div>
             </div>
             
             <div class="tickets-display-settings">
@@ -297,7 +298,7 @@
 }
 
 .ticket-body {
-    flex: 1;
+    flex: 1.1;
     margin-bottom: 5px;
 }
 
@@ -447,11 +448,11 @@
 
 /* Кнопки */
 .btn-small {
-    padding: 6px 12px;
+    /* padding: 6px 12px;
     border: 1px solid #ddd;
     background: white;
     border-radius: 4px;
-    cursor: pointer;
+    cursor: pointer; */
     font-size: 0.85em;
     transition: all 0.2s;
 }
@@ -501,6 +502,7 @@
     background: #6c757d;
     color: white;
     border-color: #6c757d;
+    margin-top: inherit;
 }
 
 .btn-secondary:hover {

@@ -2,6 +2,7 @@
 from sqlalchemy import Integer, Text, text, ForeignKey, String, DateTime, Boolean
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.sql import func
+from typing import Optional
 from app.database import Base
 from datetime import datetime
 
@@ -41,6 +42,7 @@ class TicketMessage(Base):
     ticket_id: Mapped[int] = mapped_column(Integer, ForeignKey("tickets.id"), nullable=False)
     sender_id: Mapped[int] = mapped_column(Integer, ForeignKey("users.id"), nullable=False)
     message_text: Mapped[str] = mapped_column(Text, nullable=False)
+    is_tech_support: Mapped[Optional[bool]] = mapped_column(Boolean, default=False, nullable=True)  # Новый столбец
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     
     # Relationships

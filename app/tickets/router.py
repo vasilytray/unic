@@ -224,25 +224,32 @@ async def get_ticket(
     # Используем первое сообщение как описание проблемы
     problem_description = first_message.message_text if first_message else ticket.description
     
+    # Получаем user_nick безопасным способом
+    user_nick = getattr(user, 'user_nick', None)
+    if not user_nick:
+        user_nick = user.user_email.split('@')[0] if user else "User"
+    
     # Преобразуем в схему ответа
     return TicketDetailResponse(
         id=ticket.id,
         user_id=ticket.user_id,
         user_email=user.user_email if user else "Unknown",
+        user_nick=user_nick,
         subject=ticket.subject,
-        description=problem_description,  # Теперь это первое сообщение
+        description=problem_description,
         status=ticket.status,
         priority=ticket.priority,
         is_pinned=ticket.is_pinned,
         created_at=ticket.created_at,
         updated_at=ticket.updated_at,
         message_count=len(messages),
+        first_message_id=first_message.id if first_message else None,
         messages=[
             TicketMessageResponse(
                 id=msg.id,
                 ticket_id=msg.ticket_id,
                 sender_id=msg.sender_id,
-                sender_name=msg.sender.user_email if msg.sender else "Unknown",
+                sender_name=getattr(msg.sender, 'user_nick', msg.sender.user_email if msg.sender else "User"),
                 message_text=msg.message_text,
                 created_at=msg.created_at
             ) for msg in messages
@@ -304,15 +311,23 @@ async def add_message_to_ticket(
     # Проверяем права доступа
     await get_ticket_with_access_check(ticket_id, current_user)
     
+    # Определяем, является ли отправитель техподдержкой
+    is_staff = current_user.role_id in [RoleTypes.MODERATOR, RoleTypes.ADMIN, RoleTypes.SUPER_ADMIN]
+    
+    # ВСЕГДА отправляем как техподдержку для админов/модераторов
+    # (или можно добавить логику на основе каких-то условий)
+    send_as_tech_support = is_staff  # Всегда True для staff
+    
     # Добавляем сообщение
     new_message = await TicketMessageDAO.add_message(
         ticket_id=ticket_id,
         sender_id=current_user.id,
         message_text=message_data.message_text,
+        is_tech_support=send_as_tech_support
     )
     
-    # Обновляем статус тикета в зависимости от отправителя
-    if current_user.role_id in [RoleTypes.MODERATOR, RoleTypes.ADMIN, RoleTypes.SUPER_ADMIN]:
+    # Обновляем статус тикета
+    if is_staff:
         new_status = TicketStatus.IN_PROGRESS
     else:
         new_status = TicketStatus.AWAITING_USER_RESPONSE
@@ -329,11 +344,16 @@ async def add_message_to_ticket(
         result = await session.execute(message_query)
         message_with_sender = result.unique().scalar_one()
     
+    # Определяем отображаемое имя
+    display_name = "Техподдержка" if send_as_tech_support else message_with_sender.sender.user_nick
+    
     return TicketMessageResponse(
         id=message_with_sender.id,
         ticket_id=message_with_sender.ticket_id,
         sender_id=message_with_sender.sender_id,
-        sender_name=message_with_sender.sender.user_email if message_with_sender.sender else "Unknown",
+        sender_name=display_name,
+        sender_email=message_with_sender.sender.user_email if message_with_sender.sender else "Unknown",
+        is_tech_support=send_as_tech_support,
         message_text=message_with_sender.message_text,
         created_at=message_with_sender.created_at
     )

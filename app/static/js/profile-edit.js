@@ -2,16 +2,16 @@
 
 /// app/static/js/profile-edit.js
 
-console.log('✅ profile-edit.js загружен!');
+// // // console.log('✅ profile-edit.js загружен!');
 
 // Общие функции для редактирования профиля
 
 // Инициализация базовых обработчиков
 function initializeBaseHandlers() {
-    console.log('🔄 Инициализация базовых обработчиков');
+    // // console.log('🔄 Инициализация базовых обработчиков');
     // Обработчик кнопки "Назад"
     const backButtons = document.querySelectorAll('.btn-back, [data-content="profile"]');
-    console.log(`Найдено кнопок "Назад": ${backButtons.length}`);
+    // // console.log(`Найдено кнопок "Назад": ${backButtons.length}`);
     
     backButtons.forEach(button => {
         button.addEventListener('click', function(e) {
@@ -26,7 +26,7 @@ function initializeBaseHandlers() {
 
 // Функция для возврата к странице профиля
 function returnToProfile() {
-    console.log('🔄 Возврат к профилю');
+    // // console.log('🔄 Возврат к профилю');
     if (window.contentManager) {
         // Очищаем кэш профиля для загрузки обновленных данных
         window.contentManager.moduleCache.delete('profile');
@@ -85,7 +85,7 @@ function checkPasswordMatch(newPasswordInput, confirmPasswordInput, statusElemen
 
 // Функции для работы с IP адресами в профиле
 function loadSecurityData() {
-    console.log('🔄 Загрузка данных безопасности...');
+    // // console.log('🔄 Загрузка данных безопасности...');
     
     // Загружаем текущий IP
     fetch('/users/ip-restrictions/check', {
@@ -98,12 +98,12 @@ function loadSecurityData() {
             return response.json();
         })
         .then(data => {
-            console.log('✅ Получены данные IP:', data);
+            // console.log('✅ Получены данные IP:', data);
             
             const currentIpElement = document.getElementById('security-current-ip');
             if (currentIpElement) {
                 currentIpElement.textContent = data.ip_address;
-                console.log('✅ Текущий IP установлен:', data.ip_address);
+                // console.log('✅ Текущий IP установлен:', data.ip_address);
             } else {
                 console.error('❌ Элемент security-current-ip не найден');
             }
@@ -127,25 +127,25 @@ function loadAllowedIPs() {
         return;
     }
     
-    console.log('🔄 Загрузка списка IP...');
+    // console.log('🔄 Загрузка списка IP...');
     ipList.innerHTML = '<div class="loading-ips"><i class="fas fa-spinner fa-spin"></i> Загрузка IP адресов...</div>';
     
     fetch('/users/ip-restrictions/ips', {
         credentials: 'include'
     })
         .then(response => {
-            console.log('📥 Ответ сервера на запрос IP:', response.status);
+            // console.log('📥 Ответ сервера на запрос IP:', response.status);
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
             }
             return response.json();
         })
         .then(ips => {
-            console.log('✅ Получены IP адреса:', ips);
+            // console.log('✅ Получены IP адреса:', ips);
             
             if (ips.length === 0) {
                 ipList.innerHTML = '<p class="text-muted">Нет разрешенных IP адресов</p>';
-                console.log('ℹ️ Нет разрешенных IP адресов');
+                // console.log('ℹ️ Нет разрешенных IP адресов');
             } else {
                 ipList.innerHTML = ips.map(ip => `
                     <div class="ip-item" data-ip="${ip.ip_address}">
@@ -157,12 +157,12 @@ function loadAllowedIPs() {
                     </div>
                 `).join('');
                 
-                console.log(`✅ Отображено ${ips.length} IP адресов`);
+                // console.log(`✅ Отображено ${ips.length} IP адресов`);
                 
                 // Переинициализируем обработчики событий для новых кнопок
                 setTimeout(() => {
                     const deleteButtons = ipList.querySelectorAll('.btn-danger');
-                    console.log(`🔄 Инициализация ${deleteButtons.length} кнопок удаления`);
+                    // console.log(`🔄 Инициализация ${deleteButtons.length} кнопок удаления`);
                     
                     deleteButtons.forEach(button => {
                         // Удаляем старые обработчики
@@ -174,7 +174,7 @@ function loadAllowedIPs() {
                         button.addEventListener('click', function(e) {
                             e.preventDefault();
                             const ip = this.dataset.ip;
-                            console.log('🗑️ Удаление IP:', ip);
+                            // console.log('🗑️ Удаление IP:', ip);
                             removeIP(ip);
                         });
                     });
@@ -188,7 +188,7 @@ function loadAllowedIPs() {
 }
 
 function addCurrentIP() {
-    console.log('➕ Добавление текущего IP');
+    // console.log('➕ Добавление текущего IP');
     const currentIpElement = document.getElementById('security-current-ip');
     const ipInput = document.getElementById('new-ip-address');
     
@@ -198,7 +198,7 @@ function addCurrentIP() {
         
         ipInput.value = currentIpElement.textContent;
         openAddIPModal();
-        console.log('✅ Текущий IP установлен в форму:', currentIpElement.textContent);
+        // console.log('✅ Текущий IP установлен в форму:', currentIpElement.textContent);
     } else {
         console.error('❌ Не удалось определить текущий IP');
         showNotification('Не удалось определить текущий IP адрес', 'error');
@@ -209,7 +209,7 @@ function openAddIPModal() {
     const modal = document.getElementById('addIPModal');
     if (modal) {
         modal.style.display = 'block';
-        console.log('✅ Модальное окно открыто');
+        // console.log('✅ Модальное окно открыто');
     }
 }
 
@@ -223,16 +223,16 @@ function closeAddIPModal() {
     if (form) {
         form.reset();
     }
-    console.log('✅ Модальное окно закрыто');
+    // console.log('✅ Модальное окно закрыто');
 }
 
 async function addNewIP(formElement) {
-    console.log('🔄 Добавление нового IP...');
+    // console.log('🔄 Добавление нового IP...');
     const form = formElement.closest('form');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     
-    console.log('📤 Данные для отправки:', data);
+    // console.log('📤 Данные для отправки:', data);
     
     // Валидация IP адреса
     if (!data.ip_address || !isValidIP(data.ip_address)) {
@@ -250,7 +250,7 @@ async function addNewIP(formElement) {
             credentials: 'include'
         });
         
-        console.log('📥 Ответ сервера:', response.status);
+        // console.log('📥 Ответ сервера:', response.status);
         
         if (!response.ok) {
             const errorData = await response.json();
@@ -258,7 +258,7 @@ async function addNewIP(formElement) {
         }
         
         const result = await response.json();
-        console.log('✅ IP добавлен:', result);
+        // console.log('✅ IP добавлен:', result);
         showNotification(result.message || 'IP адрес успешно добавлен', 'success');
         
         closeAddIPModal();
@@ -277,7 +277,7 @@ async function removeIP(ipAddress) {
         return;
     }
     
-    console.log('🔄 Удаление IP:', ipAddress);
+    // console.log('🔄 Удаление IP:', ipAddress);
     
     if (!confirm(`Вы уверены, что хотите удалить IP адрес ${ipAddress}?`)) {
         return;
@@ -293,7 +293,7 @@ async function removeIP(ipAddress) {
             credentials: 'include'
         });
         
-        console.log('📥 Ответ сервера на удаление:', response.status);
+        // console.log('📥 Ответ сервера на удаление:', response.status);
         
         if (!response.ok) {
             const errorData = await response.json();
@@ -301,7 +301,7 @@ async function removeIP(ipAddress) {
         }
         
         const result = await response.json();
-        console.log('✅ IP удален:', result);
+        // console.log('✅ IP удален:', result);
         showNotification(result.message || 'IP адрес удален', 'success');
         
         // Перезагружаем список IP
@@ -336,7 +336,7 @@ function isValidIP(ip) {
 
 // Инициализация IP обработчиков безопасности
 function initializeSecurityHandlers() {
-    console.log('🔄 Инициализация обработчиков безопасности...');
+    // console.log('🔄 Инициализация обработчиков безопасности...');
     
     // Обработчик модального окна
     const modal = document.getElementById('addIPModal');
@@ -369,12 +369,12 @@ function initializeSecurityHandlers() {
 
 // Автоматическая инициализация при загрузке модуля безопасности
 function initializeSecurityModule() {
-    console.log('🔄 Инициализация модуля безопасности...');
+    // console.log('🔄 Инициализация модуля безопасности...');
     
     // Проверяем, находимся ли мы на странице безопасности
     const securitySection = document.querySelector('.security-sections');
     if (securitySection) {
-        console.log('✅ Найдена секция безопасности, инициализируем...');
+        // console.log('✅ Найдена секция безопасности, инициализируем...');
         initializeSecurityHandlers();
         
         // Принудительно загружаем данные безопасности
@@ -386,13 +386,13 @@ function initializeSecurityModule() {
 
 // Основные функции для работы с профилем
 async function updateBasicProfile(formElement) {
-    console.log('🔄 updateBasicProfile вызвана из profile-edit.js');
+    // console.log('🔄 updateBasicProfile вызвана из profile-edit.js');
     
     const form = formElement.closest('form');
     const formData = new FormData(form);
     const data = Object.fromEntries(formData.entries());
     
-    console.log('📤 Отправка данных:', data);
+    // console.log('📤 Отправка данных:', data);
     
     // Клиентская проверка дополнительного email
     const emailStatus = document.getElementById('secondary-email-availability');
@@ -422,7 +422,7 @@ async function updateBasicProfile(formElement) {
             body: JSON.stringify(data)
         });
         
-        console.log('📥 Ответ сервера:', response.status);
+        // console.log('📥 Ответ сервера:', response.status);
         
         if (!response.ok) {
             const errorData = await response.json();
@@ -430,7 +430,7 @@ async function updateBasicProfile(formElement) {
         }
         
         const result = await response.json();
-        console.log('✅ Обновление успешно:', result);
+        // console.log('✅ Обновление успешно:', result);
         
         if (typeof window.showNotification === 'function') {
             window.showNotification(result.message || 'Профиль успешно обновлен', 'success');
@@ -447,7 +447,7 @@ async function updateBasicProfile(formElement) {
 }
 
 async function changePassword(formElement) {
-    console.log('changePassword called from profile-edit.js');
+    // console.log('changePassword called from profile-edit.js');
 
     const form = formElement.closest('form');
     const formData = new FormData(form);
@@ -489,7 +489,7 @@ async function changePassword(formElement) {
         }
 
         // Возвращаемся к профилю
-        console.log('🔄 Возвращаемся к профилю после смены пароля');
+        // console.log('🔄 Возвращаемся к профилю после смены пароля');
         returnToProfile();
         
     } catch (error) {
@@ -501,7 +501,7 @@ async function changePassword(formElement) {
 // Проверяем, что функции существуют в глобальной области видимости
 if (typeof window.handleAction === 'undefined') {
     window.handleAction = function(action, element, event = null) {
-        console.log('Fallback handleAction called:', action);
+        // console.log('Fallback handleAction called:', action);
         // Базовая реализация для случаев, когда основной handleAction не загружен
         if (event && event.preventDefault) {
             event.preventDefault();
@@ -545,7 +545,7 @@ if (typeof window.handleAction === 'undefined') {
 //     }
     
 //     // Fallback уведомление если глобальная функция недоступна
-//     console.log(`📢 ${type.toUpperCase()}: ${message}`);
+//     // console.log(`📢 ${type.toUpperCase()}: ${message}`);
     
 //     // Создаем простое уведомление
 //     const notification = document.createElement('div');
@@ -577,7 +577,7 @@ if (typeof window.handleAction === 'undefined') {
 
 // Убедимся, что все функции зарегистрированы глобально
 function registerGlobalFunctions() {
-    console.log('🌐 Регистрация глобальных функций...');
+    // console.log('🌐 Регистрация глобальных функций...');
     
     // Регистрируем все функции как глобальные
     const functionsToRegister = {
@@ -598,13 +598,13 @@ function registerGlobalFunctions() {
     Object.entries(functionsToRegister).forEach(([name, func]) => {
         if (typeof func === 'function') {
             window[name] = func;
-            console.log(`✅ Зарегистрирована функция: ${name}`);
+            // console.log(`✅ Зарегистрирована функция: ${name}`);
         } else {
             console.error(`❌ Функция ${name} не найдена для регистрации`);
         }
     });
     
-    console.log('✅ Все функции зарегистрированы глобально');
+    // console.log('✅ Все функции зарегистрированы глобально');
 }
 
 // Вызываем регистрацию при загрузке
@@ -612,13 +612,13 @@ registerGlobalFunctions();
 
 // Также регистрируем при загрузке DOM на всякий случай
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM загружен, проверяем регистрацию функций...');
+    // console.log('📄 DOM загружен, проверяем регистрацию функций...');
     registerGlobalFunctions();
     initializeBaseHandlers();
 });
 
 // // Обновляем глобальную регистрацию функций
-// console.log('🌐 Регистрируем глобальные функции...');
+// // console.log('🌐 Регистрируем глобальные функции...');
 // window.updateBasicProfile = updateBasicProfile;
 // window.changePassword = changePassword;
 // window.addCurrentIP = addCurrentIP;
@@ -632,4 +632,4 @@ document.addEventListener('DOMContentLoaded', function() {
 // window.loadAllowedIPs = loadAllowedIPs;
 // window.initializeSecurityHandlers = initializeSecurityHandlers;
 
-// console.log('✅ Все функции зарегистрированы глобально');
+// // console.log('✅ Все функции зарегистрированы глобально');

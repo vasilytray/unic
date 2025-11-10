@@ -60,37 +60,38 @@ class TicketDAO(BaseDAO):
         """Получить тикеты пользователя"""
         async with async_session_maker() as session:
             query = select(Ticket).where(Ticket.user_id == user_id)
-            
+
             if status:
                 query = query.where(Ticket.status == status)
-            
+
             # Подсчет
             count_query = select(func.count()).select_from(query.subquery())
             total_count = await session.scalar(count_query) or 0
-            
+
             # Данные с пагинацией
             query = query.order_by(desc(Ticket.updated_at))
             query = query.offset((page - 1) * page_size).limit(page_size)
-            
+
             result = await session.execute(query)
             tickets = result.scalars().all()
-            
-            # Получаем email пользователей и количество сообщений
+
+            # Получаем пользователей и количество сообщений
             tickets_data = []
             for ticket in tickets:
                 # Получаем пользователя
                 user_query = select(User).where(User.id == ticket.user_id)
                 user_result = await session.execute(user_query)
                 user = user_result.scalar_one_or_none()
-                
+
                 # Получаем количество сообщений
                 msg_count_query = select(func.count(TicketMessage.id)).where(TicketMessage.ticket_id == ticket.id)
                 msg_count = await session.scalar(msg_count_query) or 0
-                
+
                 tickets_data.append({
                     'id': ticket.id,
                     'user_id': ticket.user_id,
                     'user_email': user.user_email if user else "Unknown",
+                    'user_nick': getattr(user, 'user_nick', user.user_email if user else "User"),  # Добавляем user_nick
                     'subject': ticket.subject,
                     'description': ticket.description,
                     'status': ticket.status,
@@ -100,7 +101,7 @@ class TicketDAO(BaseDAO):
                     'updated_at': ticket.updated_at,
                     'message_count': msg_count
                 })
-            
+
             return {
                 "tickets": tickets_data,
                 "total_count": total_count,
@@ -117,7 +118,7 @@ class TicketDAO(BaseDAO):
         status: Optional[str] = None,
         priority: Optional[str] = None,
         user_id: Optional[int] = None,
-        is_pinned: Optional[bool] = None  # Добавьте этот параметр
+        is_pinned: Optional[bool] = None
     ):
         """Получить все тикеты для админов с ограничением 300"""
         async with async_session_maker() as session:
@@ -145,23 +146,24 @@ class TicketDAO(BaseDAO):
 
             result = await session.execute(query)
             tickets = result.scalars().all()
-            
-            # Получаем email пользователей и количество сообщений
+
+            # Получаем пользователей и количество сообщений
             tickets_data = []
             for ticket in tickets:
                 # Получаем пользователя
                 user_query = select(User).where(User.id == ticket.user_id)
                 user_result = await session.execute(user_query)
                 user = user_result.scalar_one_or_none()
-                
+
                 # Получаем количество сообщений
                 msg_count_query = select(func.count(TicketMessage.id)).where(TicketMessage.ticket_id == ticket.id)
                 msg_count = await session.scalar(msg_count_query) or 0
-                
+
                 tickets_data.append({
                     'id': ticket.id,
                     'user_id': ticket.user_id,
                     'user_email': user.user_email if user else "Unknown",
+                    'user_nick': getattr(user, 'user_nick', user.user_email if user else "User"),  # Добавляем user_nick
                     'subject': ticket.subject,
                     'description': ticket.description,
                     'status': ticket.status,
@@ -171,10 +173,10 @@ class TicketDAO(BaseDAO):
                     'updated_at': ticket.updated_at,
                     'message_count': msg_count
                 })
-            
+
             return {
                 "tickets": tickets_data,
-                "total_count": effective_total_count,  # Возвращаем ограниченное количество
+                "total_count": effective_total_count,
                 "page": page,
                 "page_size": page_size,
                 "total_pages": (effective_total_count + page_size - 1) // page_size if page_size > 0 else 1
@@ -201,19 +203,19 @@ class TicketDAO(BaseDAO):
             ticket_query = select(Ticket).where(Ticket.id == ticket_id)
             if user_id:
                 ticket_query = ticket_query.where(Ticket.user_id == user_id)
-                
+
             ticket_result = await session.execute(ticket_query)
             ticket = ticket_result.scalar_one_or_none()
-            
+
             if not ticket:
                 return None
-            
+
             # Получаем пользователя
             user_query = select(User).where(User.id == ticket.user_id)
             user_result = await session.execute(user_query)
             user = user_result.scalar_one_or_none()
-            
-            # Получаем сообщения
+
+            # Получаем сообщения с информацией об отправителях
             messages_query = (
                 select(TicketMessage)
                 .options(joinedload(TicketMessage.sender))
@@ -222,15 +224,15 @@ class TicketDAO(BaseDAO):
             )
             messages_result = await session.execute(messages_query)
             messages = messages_result.unique().scalars().all()
-            
+
             # Получаем первое сообщение (описание проблемы)
             first_message = messages[0] if messages else None
-            
+
             return {
                 'ticket': ticket,
                 'user': user,
                 'messages': messages,
-                'first_message': first_message  # Добавляем первое сообщение
+                'first_message': first_message
             }
 
     @classmethod
@@ -277,13 +279,14 @@ class TicketMessageDAO(BaseDAO):
     model = TicketMessage
 
     @classmethod
-    async def add_message(cls, ticket_id: int, sender_id: int, message_text: str):
+    async def add_message(cls, ticket_id: int, sender_id: int, message_text: str, is_tech_support: bool = False):
         """Добавить сообщение"""
         async with async_session_maker() as session:
             message = TicketMessage(
                 ticket_id=ticket_id,
                 sender_id=sender_id,
-                message_text=message_text
+                message_text=message_text,
+                is_tech_support=is_tech_support  # Добавляем флаг техподдержки
             )
             session.add(message)
             await session.commit()

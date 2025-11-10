@@ -10,7 +10,7 @@ import json  # Добавляем импорт json
 import re
 
 # Система логирования
-DEBUG_LEVEL = 3 # 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
+DEBUG_LEVEL = 0 # 0 - нет логов, 1 - ошибки, 2 - предупреждения, 3 - все логи
 logger = logging.getLogger(__name__)
 
 if (DEBUG_LEVEL >= 1):

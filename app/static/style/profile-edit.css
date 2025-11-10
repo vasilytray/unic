@@ -117,10 +117,10 @@
 }
 
 /* Стили для кнопок */
-.btn {
+/* .btn {
     padding: 12px 24px;
     border: none;
-    border-radius: 6px;
+    border-radius: .5rem;
     cursor: pointer;
     font-size: 14px;
     font-weight: 500;
@@ -130,9 +130,9 @@
     align-items: center;
     gap: 8px;
     font-family: inherit;
-}
+} */
 
-.btn-primary {
+/* .btn-primary {
     background: #007bff;
     color: white;
 }
@@ -141,9 +141,9 @@
     background: #0056b3;
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(0,0,0,0.15);
-}
+} */
 
-.btn-secondary {
+/* .btn-secondary {
     background: #6c757d;
     color: white;
 }
@@ -151,7 +151,7 @@
 .btn-secondary:hover {
     background: #5a6268;
     transform: translateY(-1px);
-}
+} */
 
 .btn-outline {
     background: transparent;

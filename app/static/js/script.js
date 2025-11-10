@@ -636,6 +636,8 @@ async function loadTicketDetails(ticketId) {
 }
 
 function renderTicketDetails(ticket) {
+    // Сохраняем ID текущего пользователя для определения своих сообщений
+    window.currentUserId = ticket.user_id; // Или получите из другого места
     const historyPanel = document.getElementById('ticket-history-panel');
     const noTicketPanel = document.getElementById('no-ticket-selected');
     
@@ -684,23 +686,39 @@ function renderMessageHistory(messages) {
         return;
     }
     
-    messageHistory.innerHTML = messages.map(message => `
-        <div class="message-item">
-            <div class="message-header">
-                <span class="message-sender">${message.sender_name || 'Неизвестный отправитель'}</span>
-                <span class="message-time">
-                    ${message.created_at ? new Date(message.created_at).toLocaleDateString('ru-RU', {
-                        day: 'numeric',
-                        month: 'long',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : 'Неизвестно'}
-                </span>
+    messageHistory.innerHTML = messages.map(message => {
+        // Определяем отображаемое имя
+        const isCurrentUser = message.sender_id === currentUserId; // Нужно получить currentUserId из глобальной переменной
+        let displayName;
+        
+        if (isCurrentUser) {
+            displayName = 'Вы';
+        } else if (message.sender_name && message.sender_name !== 'Техподдержка') {
+            displayName = message.sender_name;
+        } else {
+            displayName = 'Техподдержка';
+        }
+        
+        return `
+            <div class="message-item ${isCurrentUser ? 'user-message' : 'staff-message'}">
+                <div class="message-header">
+                    <span class="message-sender ${isCurrentUser ? 'user' : 'staff'}">
+                        ${displayName}
+                    </span>
+                    <span class="message-time">
+                        ${message.created_at ? new Date(message.created_at).toLocaleDateString('ru-RU', {
+                            day: 'numeric',
+                            month: 'long',
+                            year: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        }) : 'Неизвестно'}
+                    </span>
+                </div>
+                <div class="message-text">${message.message_text || ''}</div>
             </div>
-            <div class="message-text">${message.message_text || ''}</div>
-        </div>
-    `).join('');
+        `;
+    }).join('');
     
     // Прокручиваем к последнему сообщению
     messageHistory.scrollTop = messageHistory.scrollHeight;
@@ -736,6 +754,7 @@ function setupMessageForm(ticketId, ticketStatus) {
     }
 }
 
+// Для пользователя
 async function handleMessageSubmit(ticketId) {
     const messageText = document.getElementById('new-message-text');
     
@@ -745,8 +764,6 @@ async function handleMessageSubmit(ticketId) {
     }
     
     try {
-        logInfo('Отправка сообщения для тикета:', ticketId);
-        
         const response = await fetch(`/tickets/api/tickets/${ticketId}/messages`, {
             method: 'POST',
             headers: {
@@ -764,8 +781,6 @@ async function handleMessageSubmit(ticketId) {
         }
         
         const result = await response.json();
-        logInfo('Сообщение отправлено:', result);
-        
         showNotification('Сообщение успешно отправлено', 'success');
         
         // Очищаем поле ввода
@@ -774,16 +789,17 @@ async function handleMessageSubmit(ticketId) {
         // Обновляем историю сообщений
         await loadTicketDetails(ticketId);
         
-        // Обновляем список тикетов (для обновления времени и статуса)
+        // Обновляем список тикетов
         if (typeof loadUserTickets === 'function') {
             loadUserTickets();
         }
         
     } catch (error) {
-        logError('Error sending message:', error);
+        console.error('Error sending message:', error);
         showNotification('Ошибка отправки сообщения: ' + error.message, 'error');
     }
 }
+
 
 // ==================== КОНЕЦ ФУНКЦИЙ ДЛЯ ПАНЕЛИ ИСТОРИИ ====================
 
@@ -982,13 +998,14 @@ function renderTicketsToContainer(tickets, container, isPinned) {
             <div class="ticket-header">
                 <div class="ticket-title">
                     ${ticket.is_pinned ? '<i class="fas fa-thumbtack" title="Закреплено"></i>' : ''}
-                    <h4>${ticket.subject || 'Без темы'}</h4>
+                    ID: <h4>${ticket.id || 'Без номера'}</h4>
+                    ТЕМА: <h4>${ticket.subject || 'Без темы'}</h4>
                 </div>
                 <div class="ticket-badges">
                     <span class="ticket-priority priority-${(ticket.priority || 'Medium').toLowerCase()}">
                         ${ticket.priority || 'Medium'}
                     </span>
-                    <span class="ticket-user">ID:${ticket.user_id || 'Неизвестно'}</span>
+                    <span class="ticket-user">UID:${ticket.user_id || 'Неизвестно'}</span>
                 </div>
             </div>
             <div class="ticket-body-action">
@@ -1342,15 +1359,17 @@ function renderAdminTicketDetail(ticket) {
     const ticketMessagesCount = document.getElementById('ticket-messages-count');
     const ticketDescription = document.getElementById('ticket-description-content');
     const firstMessageTime = document.getElementById('first-message-time');
+    const ticketIdMeta = document.getElementById('ticket-id-meta');
     const conversationCount = document.getElementById('conversation-count');
     
     if (ticketIdDisplay) ticketIdDisplay.textContent = ticket.id;
     if (ticketSubject) ticketSubject.textContent = ticket.subject || 'Без темы';
-    if (ticketUserInfo) ticketUserInfo.textContent = `ID: ${ticket.user_id} (${ticket.user_email})`;
+    if (ticketUserInfo) ticketUserInfo.textContent = `UID: ${ticket.user_id} (${ticket.user_nick || ticket.user_email})`; // Используем user_nick
     if (ticketCreatedAt) ticketCreatedAt.textContent = formatDetailedDate(ticket.created_at);
     if (ticketUpdatedAt) ticketUpdatedAt.textContent = formatDetailedDate(ticket.updated_at);
     if (ticketMessagesCount) ticketMessagesCount.textContent = ticket.message_count || 0;
-    
+    if (ticketIdMeta) ticketIdMeta.textContent = `#${ticket.id}`;
+
     // Вместо описания тикета показываем первое сообщение
     if (ticketDescription) {
         // Ищем первое сообщение пользователя
@@ -1392,50 +1411,67 @@ function renderAdminTicketDetail(ticket) {
     updatePriorityBadge(ticket.priority);
     
     // История сообщений
-    renderAdminMessageHistory(ticket.messages || []);
+    renderAdminMessageHistory(ticket.messages || [], ticket.user_id);
     
     console.log('✅ Детали тикета отрендерены');
 }
 
-function renderAdminMessageHistory(messages) {
+function renderAdminMessageHistory(messages, ticketUserId) {
     const container = document.getElementById('message-history');
     
-    if (!container) {
-        console.error('❌ Контейнер истории сообщений не найден');
-        return;
-    }
-    
-    console.log('📨 Рендеринг истории сообщений:', messages.length);
+    if (!container) return;
     
     if (!messages || messages.length === 0) {
-        container.innerHTML = `
-            <div class="no-messages">
-                <i class="fas fa-comments"></i>
-                <p>Нет сообщений в истории</p>
-            </div>
-        `;
-        console.log('📭 Нет сообщений для отображения');
+        container.innerHTML = `<div class="no-messages"><i class="fas fa-comments"></i><p>Нет сообщений в истории</p></div>`;
         return;
     }
     
-    container.innerHTML = messages.map(message => `
-        <div class="message-item ${message.sender_id !== message.ticket_user_id ? 'staff-message' : 'user-message'}">
-            <div class="message-header">
-                <span class="message-sender ${message.sender_id !== message.ticket_user_id ? 'staff' : 'user'}">
-                    ${message.sender_name || 'Неизвестный отправитель'}
-                    ${message.sender_id !== message.ticket_user_id ? ' (Техподдержка)' : ''}
-                </span>
-                <span class="message-time">
-                    ${formatDetailedDate(message.created_at)}
-                </span>
-            </div>
-            <div class="message-text">${message.message_text || ''}</div>
-        </div>
-    `).join('');
-    
-    // Прокручиваем к последнему сообщению
-    container.scrollTop = container.scrollHeight;
-    console.log('✅ История сообщений отрендерена');
+    try {
+        container.innerHTML = messages.map(message => {
+            // Используем флаг is_tech_support из базы данных
+            const isTechSupport = message.is_tech_support;
+            const isStaff = message.sender_id !== ticketUserId; // Админ/модератор
+            
+            let displayName;
+            if (isTechSupport) {
+                displayName = 'Техподдержка';
+            } else if (isStaff) {
+                // Админ ответил от своего имени
+                displayName = message.sender_name || 'Администратор';
+            } else {
+                // Обычный пользователь
+                displayName = message.sender_name || 'Пользователь';
+            }
+            
+            const messageClass = isStaff ? 'staff-message' : 'user-message';
+            const senderClass = isStaff ? 'staff' : 'user';
+            
+            return `
+                <div class="message-item ${messageClass}">
+                    <div class="message-header">
+                        <span class="message-sender ${senderClass}">
+                            ${displayName}
+                            ${isTechSupport ? ' 🔧' : ''}
+                        </span>
+                        <span class="message-time">
+                            ${formatDetailedDate(message.created_at)}
+                        </span>
+                    </div>
+                    <div class="message-text">${message.message_text || ''}</div>
+                    <div class="message-meta">
+                        <small>ID сообщения: ${message.id}</small>
+                        ${isTechSupport ? '<small class="tech-support-badge">🔧 От имени техподдержки</small>' : ''}
+                    </div>
+                </div>
+            `;
+        }).join('');
+        
+        container.scrollTop = container.scrollHeight;
+        console.log('✅ История сообщений отрендерена');
+    } catch (error) {
+        console.error('❌ Ошибка при рендеринге истории сообщений:', error);
+        container.innerHTML = `<div class="error-state"><p>Ошибка загрузки истории</p></div>`;
+    }
 }
 
 async function updateAdminTicket(ticketId) {
@@ -1479,11 +1515,10 @@ async function updateAdminTicket(ticketId) {
     }
 }
 
+// Для администратора
 async function handleAdminReply(ticketId) {
     const messageText = document.getElementById('admin-message-text')?.value.trim();
     const changeStatus = document.getElementById('change-status-on-reply')?.checked;
-    
-    console.log('📤 Обработка ответа:', { ticketId, messageLength: messageText?.length, changeStatus });
     
     if (!messageText) {
         showNotification('Введите текст сообщения', 'error');
@@ -1503,40 +1538,23 @@ async function handleAdminReply(ticketId) {
             credentials: 'include'
         });
         
-        console.log('📨 Ответ отправки сообщения:', response.status);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const newMessage = await response.json();
         showNotification('Сообщение отправлено', 'success');
-        
-        // Очищаем форму
         document.getElementById('admin-message-text').value = '';
-        
-        // Обновляем историю сообщений
         await loadAdminTicketDetail(ticketId);
         
-        // Меняем статус если нужно
         if (changeStatus) {
-            console.log('🔄 Изменение статуса на "Ожидает ответа пользователя"');
             await fetch(`/tickets/api/tickets/${ticketId}`, {
                 method: 'PUT',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    status: 'Awaiting User Response'
-                }),
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: 'Awaiting User Response'}),
                 credentials: 'include'
             });
         }
         
-        console.log('✅ Ответ отправлен и обработан');
-        
     } catch (error) {
-        console.error('❌ Error sending admin reply:', error);
+        console.error('Error sending admin reply:', error);
         showNotification('Ошибка отправки сообщения: ' + error.message, 'error');
     }
 }
