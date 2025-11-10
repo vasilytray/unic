@@ -14,11 +14,11 @@
             </button>
             
             <div class="ticket-quick-actions">
-                <button class="btn-small btn-warning" data-action="toggle-pin-ticket" id="pin-ticket-btn">
-                    <i class="fas fa-thumbtack"></i> Закрепить
+                <button class="btn-small pin-toggle-btn" id="pin-ticket-btn" title="Закрепить обращение">
+                     📍
                 </button>
-                <button class="btn-small btn-danger" data-action="close-ticket" id="close-ticket-btn">
-                    <i class="fas fa-lock"></i> Закрыть обращение
+                    <button class="btn-small btn-close-ticket" id="close-ticket-btn" title="Закрыть обращение">
+                     🔒
                 </button>
             </div>
         </div>
@@ -260,6 +260,60 @@
     border-left: 4px solid #007bff;
     line-height: 1.5;
     color: #555;
+}
+
+/* Стили для кнопки закрепления */
+
+
+/* #pin-ticket-btn.btn-warning {
+    background: #ffc107;
+    color: #212529;
+    border-color: #ffc107;
+}
+
+#pin-ticket-btn.btn-warning:hover {
+    background: #e0a800;
+    border-color: #e0a800;
+} */
+
+#pin-ticket-btn.btn-secondary {
+    margin-top: 0px;
+}
+
+/* #pin-ticket-btn.btn-secondary:hover {
+    background: #545b62;
+    border-color: #545b62;
+} */
+
+/* Pin button style */
+.pin-toggle-btn {
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1; /* ensure emoji looks good */
+    transition: all 0.3s ease;
+    margin-left: 5px;
+}
+
+.pin-toggle-btn:hover {
+    transform: scale(1.1);
+}
+
+.btn-close-ticket {
+    background: none;
+    border: none;
+    font-size: 1.2em;
+    cursor: pointer;
+    padding: 5px;
+    line-height: 1; /* ensure emoji looks good */
+    transition: all 0.3s ease;
+    margin-left: 5px;
+}
+
+.btn-close-ticket:hover {
+    transform: scale(1.1);
 }
 
 /* Панель статуса */

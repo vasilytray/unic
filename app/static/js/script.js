@@ -1222,7 +1222,16 @@ async function togglePinTicket(ticketId, pinState) {
         
         if (response.ok) {
             showNotification(`Тикет ${pinState ? 'закреплен' : 'откреплен'}`, 'success');
-            loadAdminTickets();
+            
+            // ОБНОВЛЯЕМ UI НА СТРАНИЦЕ УПРАВЛЕНИЯ ТИКЕТОМ
+            if (document.getElementById('pin-ticket-btn')) {
+                updatePinButtonState(pinState);
+            }
+            
+            // ОБНОВЛЯЕМ СПИСОК ТИКЕТОВ (если мы на странице списка)
+            if (typeof loadAdminTickets === 'function') {
+                loadAdminTickets();
+            }
         } else {
             const errorData = await response.json();
             logError('Ошибка обновления тикета:', errorData);
@@ -1282,10 +1291,17 @@ function setupAdminTicketEventHandlers(ticketId) {
     // Быстрые действия
     const pinBtn = document.getElementById('pin-ticket-btn');
     if (pinBtn) {
-        pinBtn.addEventListener('click', function() {
-            const currentState = this.classList.contains('btn-warning');
-            console.log('📌 Переключение закрепления:', ticketId, 'новое состояние:', !currentState);
-            togglePinTicket(ticketId, !currentState);
+        // Удаляем старый обработчик и добавляем новый
+        pinBtn.replaceWith(pinBtn.cloneNode(true));
+        const newPinBtn = document.getElementById('pin-ticket-btn');
+        
+        newPinBtn.addEventListener('click', function() {
+            // Определяем текущее состояние по классам кнопки
+            const isCurrentlyPinned = this.classList.contains('btn-secondary');
+            const newPinState = !isCurrentlyPinned;
+            
+            console.log('📌 Переключение закрепления:', ticketId, 'новое состояние:', newPinState);
+            togglePinTicket(ticketId, newPinState);
         });
     }
     
@@ -1409,11 +1425,53 @@ function renderAdminTicketDetail(ticket) {
     // Бейджи
     updateStatusBadge(ticket.status);
     updatePriorityBadge(ticket.priority);
+
+    // ОБНОВЛЯЕМ КНОПКУ ЗАКРЕПЛЕНИЯ
+    updatePinButtonState(ticket.is_pinned);
+
+    // ОБНОВЛЯЕМ ВИДИМОСТЬ КНОПКИ ЗАКРЫТИЯ
+    updateCloseButtonVisibility(ticket.status);
     
     // История сообщений
     renderAdminMessageHistory(ticket.messages || [], ticket.user_id);
     
     console.log('✅ Детали тикета отрендерены');
+}
+
+// Добавляем функцию для обновления состояния кнопки закрепления
+function updatePinButtonState(isPinned) {
+    const pinBtn = document.getElementById('pin-ticket-btn');
+    if (!pinBtn) return;
+    
+    if (isPinned) {
+        pinBtn.innerHTML = '📌';
+        pinBtn.classList.remove('btn-warning');
+        pinBtn.classList.add('btn-secondary');
+        pinBtn.title = 'Открепить обращение';
+    } else {
+        pinBtn.innerHTML = '📍';
+        pinBtn.classList.remove('btn-secondary');
+        pinBtn.classList.add('btn-warning');
+        pinBtn.title = 'Закрепить обращение';
+    }
+    
+    console.log('📌 Состояние кнопки закрепления обновлено:', isPinned ? 'закреплен' : 'откреплен');
+}
+
+// Добавляем функцию для управления видимостью кнопки закрытия
+function updateCloseButtonVisibility(ticketStatus) {
+    const closeBtn = document.getElementById('close-ticket-btn');
+    if (!closeBtn) return;
+    
+    const isClosed = ticketStatus === 'Closed';
+    
+    if (isClosed) {
+        closeBtn.style.display = 'none';
+        console.log('🔒 Кнопка закрытия скрыта - тикет уже закрыт');
+    } else {
+        closeBtn.style.display = 'flex'; // или 'inline-flex' в зависимости от вашего стиля
+        console.log('🔓 Кнопка закрытия отображена - тикет открыт');
+    }
 }
 
 function renderAdminMessageHistory(messages, ticketUserId) {
@@ -1506,6 +1564,9 @@ async function updateAdminTicket(ticketId) {
         // Обновляем UI
         updateStatusBadge(updatedTicket.status);
         updatePriorityBadge(updatedTicket.priority);
+
+        // ОБНОВЛЯЕМ ВИДИМОСТЬ КНОПКИ ЗАКРЫТИЯ
+        updateCloseButtonVisibility(updatedTicket.status);
         
         console.log('✅ Тикет обновлен:', updatedTicket);
         
@@ -1646,8 +1707,23 @@ async function closeAdminTicket(ticketId) {
         
         if (response.ok) {
             showNotification('Обращение закрыто', 'success');
+            
+            // ОБНОВЛЯЕМ ВИДИМОСТЬ КНОПКИ ЗАКРЫТИЯ
+            updateCloseButtonVisibility('Closed');
+            
+            // Обновляем статус в селекторе
+            const statusSelect = document.getElementById('ticket-status-select');
+            if (statusSelect) {
+                statusSelect.value = 'Closed';
+            }
+            
+            // Обновляем бейдж статуса
+            updateStatusBadge('Closed');
+            
+            // Перезагружаем детали тикета для полного обновления UI
             await loadAdminTicketDetail(ticketId);
-            console.log('✅ Тикет закрыт');
+            
+            console.log('✅ Тикет закрыт, UI обновлен');
         } else {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
