@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 import re
 from pydantic import BaseModel, Field, EmailStr, field_validator, ValidationError, ConfigDict, model_validator
 from app.utils.phone_parser import PhoneParser
@@ -71,6 +71,7 @@ class SUserRegister(BaseModel):
     user_phone: str = Field(..., description="Номер телефона в международном формате, начинающийся с '+'")
     user_email: EmailStr = Field(..., description="Электронная почта пользователя")
     user_pass: str = Field(..., min_length=5, max_length=50, description="Пароль пользователя, от 5 до 50 символов")
+    user_pass_check: str = Field(..., min_length=5, max_length=50, description="Подтверждение пароля")
     first_name: str = Field(..., min_length=3, max_length=50, description="Имя, от 3 до 50 символов")
     last_name: str = Field(..., min_length=3, max_length=50, description="Фамилия, от 3 до 50 символов")
     user_nick: Optional[str] = Field(None, min_length=3, max_length=50, description="Ник пользователя, от 3 до 50 символов. Если не указан, будет сгенерирован автоматически")
@@ -92,75 +93,11 @@ class SUserRegister(BaseModel):
         return data
 
     @model_validator(mode='after')
-    def generate_user_nick(self):
-        """Автоматически генерирует никнейм, если он не указан"""
-        if not self.user_nick:
-            self.user_nick = self._create_user_nick(self.first_name, self.last_name)
-        
-        # Проверяем длину сгенерированного ника
-        if len(self.user_nick) < 3:
-            # Если сгенерированный ник слишком короткий, добавляем префикс
-            self.user_nick = f"user_{self.user_nick}"
-        
-        # Установка роли по умолчанию
-        if self.role_id is None:
-            self.role_id = 4  # Роль по умолчанию
-
+    def validate_passwords_match(self):
+        """Проверяет, что пароли совпадают"""
+        if self.user_pass != self.user_pass_check:
+            raise ValueError('Пароли не совпадают')
         return self
-
-    @staticmethod
-    def _create_user_nick(first_name: str, last_name: str) -> str:
-        """Создает никнейм из имени и фамилии"""
-        # Транслитерация кириллицы в латиницу (базовый вариант)
-        translit_map = {
-            'а': 'a', 'б': 'b', 'в': 'v', 'г': 'g', 'д': 'd', 'е': 'e', 'ё': 'e',
-            'ж': 'zh', 'з': 'z', 'и': 'i', 'й': 'y', 'к': 'k', 'л': 'l', 'м': 'm',
-            'н': 'n', 'о': 'o', 'п': 'p', 'р': 'r', 'с': 's', 'т': 't', 'у': 'u',
-            'ф': 'f', 'х': 'h', 'ц': 'ts', 'ч': 'ch', 'ш': 'sh', 'щ': 'sch', 'ъ': '',
-            'ы': 'y', 'ь': '', 'э': 'e', 'ю': 'yu', 'я': 'ya',
-            'А': 'A', 'Б': 'B', 'В': 'V', 'Г': 'G', 'Д': 'D', 'Е': 'E', 'Ё': 'E',
-            'Ж': 'Zh', 'З': 'Z', 'И': 'I', 'Й': 'Y', 'К': 'K', 'Л': 'L', 'М': 'M',
-            'Н': 'N', 'О': 'O', 'П': 'P', 'Р': 'R', 'С': 'S', 'Т': 'T', 'У': 'U',
-            'Ф': 'F', 'Х': 'H', 'Ц': 'Ts', 'Ч': 'Ch', 'Ш': 'Sh', 'Щ': 'Sch', 'Ъ': '',
-            'Ы': 'Y', 'Ь': '', 'Э': 'E', 'Ю': 'Yu', 'Я': 'Ya'
-        }
-        
-        def transliterate(text: str) -> str:
-            """Транслитерирует кириллический текст в латиницу"""
-            result = []
-            for char in text:
-                if char in translit_map:
-                    result.append(translit_map[char])
-                elif char.isalnum():
-                    result.append(char)
-                else:
-                    result.append('_')
-            return ''.join(result)
-        
-        # Транслитерируем имя и фамилию
-        first_latin = transliterate(first_name.lower())
-        last_latin = transliterate(last_name.lower())
-        
-        # Убираем лишние символы и создаем ник
-        first_clean = re.sub(r'[^a-z0-9]', '', first_latin)
-        last_clean = re.sub(r'[^a-z0-9]', '', last_latin)
-        
-        # Если после очистки что-то пустое, используем альтернативные варианты
-        if not first_clean and not last_clean:
-            return f"user_{hash(first_name + last_name) % 10000:04d}"
-        elif not first_clean:
-            return last_clean[:47] if len(last_clean) > 47 else last_clean
-        elif not last_clean:
-            return first_clean[:47] if len(first_clean) > 47 else first_clean
-        
-        # Создаем базовый ник
-        base_nick = f"{first_clean}_{last_clean}"
-        
-        # Обрезаем если слишком длинный
-        if len(base_nick) > 50:
-            base_nick = base_nick[:50]
-        
-        return base_nick
 
     @field_validator("user_phone")
     def validate_user_phone(cls, value):
@@ -303,3 +240,126 @@ class SRoleChangeLog(BaseModel):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class SUserRead(BaseModel):
+    id: int = Field(..., description="Идентификатор пользователя")
+    user_name: str = Field(..., min_length=3, max_length=50, description="Имя, от 3 до 50 символов")
+
+class SUserUpdateProfile(BaseModel):
+    first_name: str = Field(..., min_length=3, max_length=50, description="Имя пользователя")
+    last_name: str = Field(..., min_length=3, max_length=50, description="Фамилия пользователя")
+    user_nick: str = Field(..., min_length=3, max_length=50, description="Ник пользователя")
+    secondary_email: Optional[EmailStr] = Field(None, description="Дополнительный email")
+
+    @field_validator("user_nick")
+    def validate_user_nick(cls, value):
+        if not re.match(r'^[a-zA-Z0-9_]{3,50}$', value):
+            raise ValueError('Никнейм может содержать только латинские буквы, цифры и подчеркивания, от 3 до 50 символов')
+        return value
+    
+    @field_validator("secondary_email")
+    def validate_secondary_email(cls, value):
+        if value == "":
+            return None
+        return value
+
+class SUserChangePassword(BaseModel):
+    current_password: str = Field(..., min_length=5, max_length=50, description="Текущий пароль")
+    new_password: str = Field(..., min_length=5, max_length=50, description="Новый пароль")
+    confirm_password: str = Field(..., min_length=5, max_length=50, description="Подтверждение нового пароля")
+
+    @model_validator(mode='after')
+    def validate_passwords_match(self):
+        if self.new_password != self.confirm_password:
+            raise ValueError('Новый пароль и подтверждение не совпадают')
+        if self.current_password == self.new_password:
+            raise ValueError('Новый пароль должен отличаться от текущего')
+        return self
+
+class SUserAddSecondaryEmail(BaseModel):
+    secondary_email: EmailStr = Field(..., description="Дополнительный email")
+
+# class SUserIPRestriction(BaseModel):
+#     allowed_ips: List[str] = Field(..., description="Список разрешенных IP адресов")
+    
+#     @field_validator("allowed_ips")
+#     def validate_ips(cls, value):
+#         import ipaddress
+#         valid_ips = []
+#         for ip in value:
+#             try:
+#                 # Проверяем валидность IP
+#                 ipaddress.ip_address(ip.strip())
+#                 valid_ips.append(ip.strip())
+#             except ValueError:
+#                 raise ValueError(f'Неверный формат IP адреса: {ip}')
+#         return valid_ips
+
+class SUserSecuritySettings(BaseModel):
+    enable_ip_restriction: bool = Field(False, description="Включить ограничение по IP")
+    allowed_ips: Optional[List[str]] = Field(None, description="Список разрешенных IP адресов")
+    require_2fa_for_new_ip: bool = Field(False, description="Требовать 2FA для входа с нового IP")
+
+class SUserSessionInfo(BaseModel):
+    id: int
+    ip_address: str
+    user_agent: Optional[str] = None
+    created_at: datetime
+    last_activity: datetime
+
+class SUserProfileResponse(BaseModel):
+    id: int
+    user_phone: str
+    first_name: str
+    last_name: str
+    user_nick: str
+    user_email: str
+    secondary_email: Optional[str] = None
+    two_fa_auth: int
+    email_verified: int
+    phone_verified: int
+    role_id: int
+    tg_chat_id: Optional[str] = None
+    security_settings: Optional[dict] = None
+    created_at: datetime
+    last_login: Optional[datetime] = None
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SUserAllowedIPBase(BaseModel):
+    ip_address: str = Field(..., description="IP адрес")
+    description: Optional[str] = Field(None, description="Описание IP адреса")
+
+    @field_validator("ip_address")
+    def validate_ip_address(cls, value):
+        import ipaddress
+        try:
+            ipaddress.ip_address(value)
+            return value
+        except ValueError:
+            raise ValueError(f'Неверный формат IP адреса: {value}')
+
+class SUserAllowedIPCreate(SUserAllowedIPBase):
+    pass
+
+class SUserAllowedIPResponse(SUserAllowedIPBase):
+    id: int
+    user_id: int
+    is_active: int
+    created_at: datetime
+    updated_at: datetime
+
+    model_config = ConfigDict(from_attributes=True)
+
+class SUserAddIP(SUserAllowedIPBase):
+    pass
+
+class SUserRemoveIP(BaseModel):
+    ip_address: str = Field(..., description="IP адрес для удаления")
+
+class SUserIPRestriction(BaseModel):
+    ip_addresses: List[SUserAllowedIPBase] = Field(..., description="Список IP адресов")
+
+class SUserSecuritySettings(BaseModel):
+    enable_ip_restriction: bool = Field(False, description="Включить ограничение по IP")
+    require_2fa_for_new_ip: bool = Field(False, description="Требовать 2FA для входа с нового IP")

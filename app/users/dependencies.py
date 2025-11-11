@@ -1,35 +1,42 @@
 from fastapi import Request, HTTPException, status, Depends
 from jose import jwt, JWTError
+from typing import Optional
 from datetime import datetime, timezone
 from app.config import get_auth_data
 from app.users.models import User
-from app.exceptions import TokenExpiredException, NoJwtException, NoUserIdException, ForbiddenException
+from app.exceptions import TokenExpiredException, NoJwtException, NoUserIdException, ForbiddenException, TokenNoFoundException
 from app.users.dao import UsersDAO
 from app.roles.models import Role, RoleTypes
+from app.utils.secutils import SecurityUtils
+from app.users.ip_dao import UserAllowedIPsDAO
 
 
 def get_token(request: Request):
     token = request.cookies.get('users_access_token')
     if not token:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен не найден')
+        raise TokenNoFoundException
     return token
 
   
 async def get_current_user(token: str = Depends(get_token)):
+    """
+    Основная зависимость для получения текущего пользователя
+    Используется для защищенных эндпоинтов
+    """
     try:
         auth_data = get_auth_data()
         payload = jwt.decode(token, auth_data['secret_key'], algorithms=[auth_data['algorithm']])
     except JWTError:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен не валидный!')
+        raise NoJwtException
 
     expire = payload.get('exp')
     expire_time = datetime.fromtimestamp(int(expire), tz=timezone.utc)
     if (not expire) or (expire_time < datetime.now(timezone.utc)):
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Токен истек')
+        raise TokenExpiredException
 
     user_id = payload.get('sub')
     if not user_id:
-        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail='Не найден ID пользователя')
+        raise NoUserIdException
 
     user = await UsersDAO.find_one_or_none_by_id(int(user_id))
     if not user:
@@ -37,15 +44,41 @@ async def get_current_user(token: str = Depends(get_token)):
 
     return user
 
+async def get_optional_user(request: Request) -> Optional[User]:
+    """
+    Зависимость для опционального получения пользователя
+    Возвращает пользователя если авторизован, иначе None
+    Используется для главной страницы и публичных эндпоинтов
+    """
+    try:
+        token = request.cookies.get('users_access_token')
+        if not token:
+            return None
+            
+        auth_data = get_auth_data()
+        payload = jwt.decode(token, auth_data['secret_key'], algorithms=[auth_data['algorithm']])
+        
+        # Проверяем срок действия токена
+        expire = payload.get('exp')
+        if expire:
+            expire_time = datetime.fromtimestamp(int(expire), tz=timezone.utc)
+            if expire_time < datetime.now(timezone.utc):
+                return None
+        
+        user_id = payload.get('sub')
+        if not user_id:
+            return None
+            
+        user = await UsersDAO.find_one_or_none_by_id(int(user_id))
+        return user
+        
+    except (JWTError, Exception):
+        # Любая ошибка - считаем пользователя неавторизованным
+        return None
+
 async def get_current_admin(current_user: User = Depends(get_current_user)):
     """Проверяет, что пользователь имеет роль Admin или SuperAdmin"""
     if current_user.is_admin:
-        return current_user
-    raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
-
-async def get_current_super_admin(current_user: User = Depends(get_current_user)):
-    """Проверяет, что пользователь имеет роль SuperAdmin"""
-    if current_user.is_super_admin:
         return current_user
     raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Недостаточно прав!')
 
@@ -128,3 +161,37 @@ async def update_role_counters(old_role_id: int, new_role_id: int):
     
     if new_role_id != old_role_id:
         await Role.increment_count(new_role_id)
+
+async def validate_ip_access(request: Request, current_user: User = Depends(get_current_user)):
+    """
+    Проверяет доступ по IP адресу
+    """
+    client_ip = SecurityUtils.get_client_ip(request)
+    
+    # Проверяем ограничения по IP
+    if not await SecurityUtils.is_ip_allowed(current_user.id, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Доступ с IP {client_ip} запрещен"
+        )
+    
+    return current_user
+
+async def get_current_user_with_ip_check(
+    request: Request, 
+    token: str = Depends(get_token)
+):
+    """
+    Основная зависимость с проверкой IP
+    """
+    user = await get_current_user(token)
+    
+    # Проверяем IP
+    client_ip = SecurityUtils.get_client_ip(request)
+    if not await SecurityUtils.is_ip_allowed(user.id, client_ip):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail=f"Доступ с IP {client_ip} запрещен"
+        )
+    
+    return user

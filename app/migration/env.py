@@ -16,6 +16,10 @@ from app.students.models import Student
 from app.majors.models import Major
 from app.users.models import User
 from app.roles.models import Role
+from app.tickets.models import Ticket
+from app.chat.models import Message
+from app.services.models import Service, BillingPlan
+from app.billing.models import Invoice, Transaction
 from app.verificationcodes.models import VerificationCode
 
 # this is the Alembic Config object, which provides
